@@ -1,7 +1,7 @@
 const { Plugin, Modal, Notice, ItemView, MarkdownView, moment, setIcon, Setting, PluginSettingTab, requestUrl } = require('obsidian');
 
 const VIEW_TYPE = 'compass-sidebar-view';
-const COMPASS_PLUGIN_VERSION = '2.0.1';
+const COMPASS_PLUGIN_VERSION = '2.0.2';
 const COMPASS_DATA_SCHEMA_VERSION = 3;
 
 const COMPASS_UPDATE_MANIFEST_URL = 'https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/latest.json';
@@ -591,6 +591,8 @@ class RelationshipSituationModal extends Modal {
         const wait = contentEl.createDiv({ cls: 'compass-waiting-card' });
         wait.createEl('strong', { text: 'Ожидание второй стороны' });
         wait.createEl('p', { text: 'Чужая запись откроется только после того, как обе стороны завершат свои тексты.' });
+        const refresh = wait.createEl('button', { text: 'Обновить записи' });
+        refresh.onclick = () => { this.close(); setTimeout(() => new RelationshipSituationModal(this.app, this.plugin, this.situation).open(), 150); };
       }
     } catch (e) {
       loading.setText(`Не удалось открыть: ${e.message || e}`);

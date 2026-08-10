@@ -1,11 +1,11 @@
 {
-  "version": "2.0.1",
+  "version": "2.0.2",
   "minInstalledVersion": "2.0.0",
   "releaseNotes": [
-    "Первый тест встроенного механизма безопасных обновлений.",
-    "Добавлен тестовый журнал «🧪 Тест» в боковое меню.",
-    "Блок «🧪 Тест» доступен в списке «Добавить блок» и добавляется в дневную заметку.",
-    "Пользовательские заметки, вложения и данные «Отношений» не изменяются."
+    "Собрано строго на базе рабочего Compass 2.0.0.",
+    "Сохранён тестовый журнал «🧪 Тест».",
+    "В окне ситуации добавлена кнопка «Обновить записи», если запись партнёра временно не пришла.",
+    "Пользовательские заметки, вложения и данные «Отношений» не изменяются. Supabase не меняется."
   ],
   "touchesUserData": false,
   "requiresSupabaseMigration": false,
@@ -13,7 +13,7 @@
     {
       "path": "main.js",
       "url": "https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/main.js",
-      "sha256": "89d42ab650e1bd5d12c3d6e2e70e5a4375450d0f7f546fd825479b85f4456006"
+      "sha256": "8da85170bae7ace184c0bac75fdd2adf7d4a75390fe6473496358de920210f03"
     },
     {
       "path": "styles.css",
@@ -23,7 +23,7 @@
     {
       "path": "manifest.json",
       "url": "https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/manifest.json",
-      "sha256": "bc61a54b1d2d7d52e6555a2441985a08dc17f6307df4df810b53d10e46a15a66"
+      "sha256": "4ec1a27d1fbc2241e62480f94d9e66dafda328fa65c2d43e11613b75859acccf"
     }
   ]
 }
