@@ -1,7 +1,7 @@
 const { Plugin, Modal, Notice, ItemView, MarkdownView, moment, setIcon, Setting, PluginSettingTab, requestUrl } = require('obsidian');
 
 const VIEW_TYPE = 'compass-sidebar-view';
-const COMPASS_PLUGIN_VERSION = '2.1.0';
+const COMPASS_PLUGIN_VERSION = '2.1.1';
 const COMPASS_DATA_SCHEMA_VERSION = 3;
 
 const COMPASS_UPDATE_MANIFEST_URL = 'https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/latest.json';
@@ -399,6 +399,127 @@ function attachMobileKeyboardDismiss(rootEl) {
   return cleanup;
 }
 
+function attachMobileKeyboardAvoidance(rootEl) {
+  if (!rootEl) return () => {};
+  if (typeof rootEl.__compassKeyboardAvoidCleanup === 'function') rootEl.__compassKeyboardAvoidCleanup();
+
+  const viewport = window.visualViewport;
+  const update = () => {
+    let occluded = 0;
+    if (viewport) occluded = Math.max(0, window.innerHeight - (viewport.height + viewport.offsetTop));
+    rootEl.style.setProperty('--compass-keyboard-offset', `${Math.round(occluded)}px`);
+    rootEl.classList.toggle('is-keyboard-open', occluded > 80);
+    if (occluded > 80) {
+      const active = document.activeElement;
+      if (active instanceof Element && rootEl.contains(active) && active.matches('input, textarea, [contenteditable="true"]')) {
+        window.setTimeout(() => {
+          try { active.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'smooth' }); } catch (_) {}
+        }, 120);
+      }
+    }
+  };
+  const onFocus = event => {
+    const target = event.target;
+    if (target instanceof Element && target.matches('input, textarea, [contenteditable="true"]')) {
+      window.setTimeout(update, 180);
+    }
+  };
+  rootEl.addEventListener('focusin', onFocus, true);
+  if (viewport) {
+    viewport.addEventListener('resize', update);
+    viewport.addEventListener('scroll', update);
+  }
+  window.addEventListener('orientationchange', update);
+  update();
+
+  const cleanup = () => {
+    rootEl.removeEventListener('focusin', onFocus, true);
+    if (viewport) {
+      viewport.removeEventListener('resize', update);
+      viewport.removeEventListener('scroll', update);
+    }
+    window.removeEventListener('orientationchange', update);
+    rootEl.style.removeProperty('--compass-keyboard-offset');
+    rootEl.classList.remove('is-keyboard-open');
+    if (rootEl.__compassKeyboardAvoidCleanup === cleanup) rootEl.__compassKeyboardAvoidCleanup = null;
+  };
+  rootEl.__compassKeyboardAvoidCleanup = cleanup;
+  return cleanup;
+}
+
+function attachSpeechDictation(button, textarea, locale = 'ru-RU') {
+  if (!button || !textarea) return () => {};
+  const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let recognition = null;
+  let running = false;
+  let destroyed = false;
+
+  const setIdle = () => {
+    running = false;
+    button.removeClass('is-listening');
+    button.setText('🎙️ Диктовать');
+  };
+
+  const insertTranscript = text => {
+    const transcript = String(text || '').trim();
+    if (!transcript) return;
+    const start = Number.isInteger(textarea.selectionStart) ? textarea.selectionStart : textarea.value.length;
+    const end = Number.isInteger(textarea.selectionEnd) ? textarea.selectionEnd : start;
+    const before = textarea.value.slice(0, start);
+    const after = textarea.value.slice(end);
+    const space = before && !/\s$/.test(before) ? ' ' : '';
+    textarea.value = `${before}${space}${transcript}${after}`;
+    const caret = (before + space + transcript).length;
+    try { textarea.setSelectionRange(caret, caret); } catch (_) {}
+    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    textarea.focus();
+  };
+
+  button.onclick = () => {
+    if (!Recognition) {
+      textarea.focus();
+      new Notice('Отдельное распознавание речи недоступно на этом устройстве. Поле ввода открыто — используй микрофон системной клавиатуры для диктовки.');
+      return;
+    }
+    if (running && recognition) {
+      try { recognition.stop(); } catch (_) {}
+      return;
+    }
+    recognition = new Recognition();
+    recognition.lang = locale;
+    recognition.continuous = true;
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+    recognition.onstart = () => {
+      running = true;
+      button.addClass('is-listening');
+      button.setText('⏹ Остановить');
+    };
+    recognition.onresult = event => {
+      for (let i = event.resultIndex; i < event.results.length; i += 1) {
+        if (event.results[i].isFinal) insertTranscript(event.results[i][0]?.transcript || '');
+      }
+    };
+    recognition.onerror = event => {
+      const code = event?.error || 'unknown';
+      if (code !== 'aborted' && code !== 'no-speech') new Notice(`Диктовка: ${code}`);
+      setIdle();
+    };
+    recognition.onend = () => { if (!destroyed) setIdle(); };
+    try { recognition.start(); }
+    catch (e) {
+      setIdle();
+      new Notice(`Не удалось запустить диктовку: ${e.message || e}`);
+    }
+  };
+
+  return () => {
+    destroyed = true;
+    if (recognition) { try { recognition.abort(); } catch (_) {} }
+    setIdle();
+  };
+}
+
 function bytesToBase64(bytes) {
   let binary = '';
   for (const b of bytes) binary += String.fromCharCode(b);
@@ -420,11 +541,14 @@ class RelationshipSessionModal extends Modal {
     this.password = '';
     this.encryptionSecret = '';
     this.cleanupKeyboardDismiss = null;
+    this.cleanupKeyboardAvoidance = null;
+    this.cleanupDictation = null;
   }
 
   onOpen() {
     const { contentEl } = this;
     this.cleanupKeyboardDismiss = attachMobileKeyboardDismiss(contentEl);
+    this.cleanupKeyboardAvoidance = attachMobileKeyboardAvoidance(contentEl);
     contentEl.addClass('compass-relationship-login');
     contentEl.createEl('h2', { text: '❤️ Общее пространство' });
     contentEl.createEl('p', {
@@ -518,6 +642,8 @@ class NewRelationshipSituationModal extends Modal {
     setTimeout(() => textarea.focus(), 50);
 
     const keyboardActions = contentEl.createDiv({ cls: 'compass-keyboard-actions' });
+    const dictate = keyboardActions.createEl('button', { text: '🎙️ Диктовать', cls: 'compass-dictate-button' });
+    this.cleanupDictation = attachSpeechDictation(dictate, textarea, 'ru-RU');
     const hideKeyboard = keyboardActions.createEl('button', { text: '⌄ Скрыть клавиатуру', cls: 'compass-hide-keyboard' });
     hideKeyboard.onclick = () => blurActiveEditable();
 
@@ -558,6 +684,8 @@ class NewRelationshipSituationModal extends Modal {
 
   onClose() {
     blurActiveEditable();
+    if (this.cleanupDictation) this.cleanupDictation();
+    if (this.cleanupKeyboardAvoidance) this.cleanupKeyboardAvoidance();
     if (this.cleanupKeyboardDismiss) this.cleanupKeyboardDismiss();
     this.contentEl.empty();
   }
@@ -571,16 +699,21 @@ class RelationshipEditTextModal extends Modal {
     this.value = initialText || '';
     this.onSave = onSave;
     this.cleanupKeyboardDismiss = null;
+    this.cleanupKeyboardAvoidance = null;
+    this.cleanupDictation = null;
   }
 
   onOpen() {
     const { contentEl } = this;
     this.cleanupKeyboardDismiss = attachMobileKeyboardDismiss(contentEl);
+    this.cleanupKeyboardAvoidance = attachMobileKeyboardAvoidance(contentEl);
     contentEl.createEl('h2', { text: this.title });
     const textarea = contentEl.createEl('textarea', { cls: 'compass-situation-textarea' });
     textarea.value = this.value;
     textarea.addEventListener('input', () => { this.value = textarea.value; });
     const keyboardActions = contentEl.createDiv({ cls: 'compass-keyboard-actions' });
+    const dictate = keyboardActions.createEl('button', { text: '🎙️ Диктовать', cls: 'compass-dictate-button' });
+    this.cleanupDictation = attachSpeechDictation(dictate, textarea, 'ru-RU');
     const hideKeyboard = keyboardActions.createEl('button', { text: '⌄ Скрыть клавиатуру', cls: 'compass-hide-keyboard' });
     hideKeyboard.onclick = () => blurActiveEditable();
     const actions = contentEl.createDiv({ cls: 'compass-section-actions' });
@@ -603,6 +736,8 @@ class RelationshipEditTextModal extends Modal {
 
   onClose() {
     blurActiveEditable();
+    if (this.cleanupDictation) this.cleanupDictation();
+    if (this.cleanupKeyboardAvoidance) this.cleanupKeyboardAvoidance();
     if (this.cleanupKeyboardDismiss) this.cleanupKeyboardDismiss();
     this.contentEl.empty();
   }
@@ -645,10 +780,13 @@ class RelationshipSituationModal extends Modal {
     this.plugin = plugin;
     this.situation = situation;
     this.cleanupKeyboardDismiss = null;
+    this.cleanupKeyboardAvoidance = null;
+    this.cleanupDictation = null;
   }
 
   async onOpen() {
     this.cleanupKeyboardDismiss = attachMobileKeyboardDismiss(this.contentEl);
+    this.cleanupKeyboardAvoidance = attachMobileKeyboardAvoidance(this.contentEl);
     await this.render();
   }
 
@@ -750,6 +888,19 @@ class RelationshipSituationModal extends Modal {
         } catch (e) { new Notice(`Не удалось изменить цвет: ${e.message || e}`); }
       };
     });
+    const minePref = prefs.find(p => p.user_id === me);
+    const emailEnabled = Boolean(minePref?.email_notifications_enabled);
+    const emailButton = wrap.createEl('button', {
+      text: emailEnabled ? '📩 Email: вкл' : '📩 Email: выкл',
+      cls: `compass-email-toggle${emailEnabled ? ' is-active' : ''}`
+    });
+    emailButton.onclick = async () => {
+      try {
+        await this.plugin.setRelationshipEmailNotificationsEnabled(!emailEnabled);
+        new Notice(!emailEnabled ? 'Email-уведомления включены' : 'Email-уведомления выключены');
+        await this.render();
+      } catch (e) { new Notice(`Не удалось изменить email-уведомления: ${e.message || e}`); }
+    };
   }
 
   async renderMessages(container, messages, prefs) {
@@ -814,6 +965,9 @@ class RelationshipSituationModal extends Modal {
     const composer = container.createDiv({ cls: 'compass-message-composer' });
     const textarea = composer.createEl('textarea', { attr: { placeholder: 'Продолжить обсуждение…' } });
     const keyboardActions = composer.createDiv({ cls: 'compass-keyboard-actions' });
+    const dictate = keyboardActions.createEl('button', { text: '🎙️ Диктовать', cls: 'compass-dictate-button' });
+    if (this.cleanupDictation) this.cleanupDictation();
+    this.cleanupDictation = attachSpeechDictation(dictate, textarea, 'ru-RU');
     const hideKeyboard = keyboardActions.createEl('button', { text: '⌄ Скрыть клавиатуру', cls: 'compass-hide-keyboard' });
     hideKeyboard.onclick = () => blurActiveEditable();
     const actions = composer.createDiv({ cls: 'compass-section-actions' });
@@ -835,6 +989,8 @@ class RelationshipSituationModal extends Modal {
 
   onClose() {
     blurActiveEditable();
+    if (this.cleanupDictation) this.cleanupDictation();
+    if (this.cleanupKeyboardAvoidance) this.cleanupKeyboardAvoidance();
     if (this.cleanupKeyboardDismiss) this.cleanupKeyboardDismiss();
     this.contentEl.empty();
   }
@@ -1666,6 +1822,7 @@ module.exports = class CompassPlugin extends Plugin {
         is_finished: true
       })
     });
+    this.sendRelationshipEmailNotification('new_topic', situation.id).catch(e => console.warn('Compass email notification', e));
     return situation;
   }
 
@@ -1684,6 +1841,7 @@ module.exports = class CompassPlugin extends Plugin {
         is_finished: true
       })
     });
+    this.sendRelationshipEmailNotification('initial_response', situationId).catch(e => console.warn('Compass email notification', e));
   }
 
   async getRelationshipSituations() {
@@ -1722,6 +1880,7 @@ module.exports = class CompassPlugin extends Plugin {
         encryption_iv: encrypted.encryption_iv
       })
     });
+    this.sendRelationshipEmailNotification('new_message', situationId).catch(e => console.warn('Compass email notification', e));
   }
 
   async updateRelationshipEntry(entryId, text) {
@@ -1776,6 +1935,37 @@ module.exports = class CompassPlugin extends Plugin {
     }
   }
 
+  async setRelationshipEmailNotificationsEnabled(enabled) {
+    const spaceId = this.relationshipSession?.spaceId;
+    const userId = this.relationshipSession?.user?.id;
+    if (!spaceId || !userId) throw new Error('Нет активного сеанса');
+    const existing = await this.supabaseRequest(`/rest/v1/relationship_member_preferences?select=space_id,user_id&space_id=eq.${encodeURIComponent(spaceId)}&user_id=eq.${encodeURIComponent(userId)}&limit=1`);
+    if (Array.isArray(existing) && existing.length) {
+      await this.supabaseRequest(`/rest/v1/relationship_member_preferences?space_id=eq.${encodeURIComponent(spaceId)}&user_id=eq.${encodeURIComponent(userId)}`, {
+        method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ email_notifications_enabled: Boolean(enabled), updated_at: new Date().toISOString() })
+      });
+    } else {
+      await this.supabaseRequest('/rest/v1/relationship_member_preferences', {
+        method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ space_id: spaceId, user_id: userId, accent_color: 'blue', email_notifications_enabled: Boolean(enabled) })
+      });
+    }
+  }
+
+  async sendRelationshipEmailNotification(eventType, situationId) {
+    if (!this.relationshipSession?.accessToken) return;
+    const allowed = ['new_topic', 'initial_response', 'new_message', 'close_request'];
+    if (!allowed.includes(eventType)) return;
+    try {
+      await this.supabaseRequest('/functions/v1/relationship-email', {
+        method: 'POST',
+        body: JSON.stringify({ event_type: eventType, situation_id: situationId })
+      });
+    } catch (e) {
+      // Email is intentionally non-blocking: a mail outage must never prevent the conversation itself.
+      console.warn('Compass relationship email unavailable', e);
+    }
+  }
+
   async relationshipRpc(name, args) {
     return this.supabaseRequest(`/rest/v1/rpc/${name}`, { method: 'POST', body: JSON.stringify(args || {}) });
   }
@@ -1787,6 +1977,7 @@ module.exports = class CompassPlugin extends Plugin {
 
   async requestCloseRelationshipTopic(situationId) {
     await this.relationshipRpc('request_close_relationship_topic', { target_situation: situationId });
+    this.sendRelationshipEmailNotification('close_request', situationId).catch(e => console.warn('Compass email notification', e));
   }
 
   async cancelCloseRelationshipTopic(situationId) {

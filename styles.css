@@ -447,3 +447,68 @@
   box-shadow: 0 0 0 2px var(--interactive-accent);
   background: var(--background-primary-alt);
 }
+
+/* Compass 2.1.1: mobile keyboard + dictation */
+.compass-relationship-situation,
+.compass-situation-editor,
+.compass-relationship-login {
+  padding-bottom: calc(18px + var(--compass-keyboard-offset, 0px));
+  max-height: min(88dvh, calc(100dvh - 24px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scroll-padding-bottom: calc(120px + var(--compass-keyboard-offset, 0px));
+}
+
+.compass-relationship-situation.is-keyboard-open,
+.compass-situation-editor.is-keyboard-open,
+.compass-relationship-login.is-keyboard-open {
+  max-height: calc(100dvh - 8px);
+}
+
+.compass-message-composer,
+.compass-situation-editor {
+  scroll-margin-bottom: calc(120px + var(--compass-keyboard-offset, 0px));
+}
+
+.compass-keyboard-actions {
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.compass-dictate-button,
+.compass-email-toggle {
+  font-size: 0.85rem;
+  padding: 6px 10px;
+  border-radius: 8px;
+}
+
+.compass-dictate-button.is-listening {
+  font-weight: 700;
+  box-shadow: 0 0 0 2px var(--interactive-accent);
+}
+
+.compass-email-toggle.is-active {
+  box-shadow: inset 0 0 0 2px var(--interactive-accent);
+}
+
+@media (max-width: 500px) {
+  .compass-relationship-situation,
+  .compass-situation-editor,
+  .compass-relationship-login {
+    width: 100%;
+    max-width: 100%;
+    max-height: calc(100dvh - 4px);
+  }
+
+  .compass-message-composer textarea,
+  .compass-situation-textarea {
+    min-height: 34vh;
+    max-height: 52vh;
+  }
+
+  .compass-message-composer textarea:focus,
+  .compass-situation-textarea:focus {
+    min-height: 28vh;
+  }
+}

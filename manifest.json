@@ -1,9 +1,9 @@
 {
   "id": "compass-add",
   "name": "Compass",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "minAppVersion": "1.5.0",
-  "description": "Compass 2.1: именованные темы отношений, продолжение обсуждения, цвета, редактирование с историей и совместное закрытие.",
+  "description": "Compass 2.1.1: мобильная клавиатура, диктовка в текст и подготовка email-уведомлений.",
   "author": "OpenAI",
   "isDesktopOnly": false
 }
