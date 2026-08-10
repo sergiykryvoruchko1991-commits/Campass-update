@@ -1,7 +1,7 @@
 const { Plugin, Modal, Notice, ItemView, MarkdownView, moment, setIcon, Setting, PluginSettingTab, requestUrl } = require('obsidian');
 
 const VIEW_TYPE = 'compass-sidebar-view';
-const COMPASS_PLUGIN_VERSION = '2.1.1';
+const COMPASS_PLUGIN_VERSION = '2.1.2';
 const COMPASS_DATA_SCHEMA_VERSION = 3;
 
 const COMPASS_UPDATE_MANIFEST_URL = 'https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/latest.json';
@@ -156,25 +156,21 @@ class NewDocumentModal extends Modal {
 
   onOpen() {
     const { contentEl } = this;
-    contentEl.createEl('h2', { text: 'Новый документ' });
+    contentEl.createEl('h2', { text: 'Новая заметка' });
     new Setting(contentEl)
       .setName('Название')
-      .setDesc('Будет создан отдельный файл внутри этой базы знаний.')
+      .setDesc('Заметка будет создана в текущей папке базы знаний.')
       .addText(text => {
-        text.setPlaceholder('Название книги, узла, ремонта…');
+        text.setPlaceholder('Название заметки');
         text.onChange(value => { this.name = value.trim(); });
         setTimeout(() => text.inputEl.focus(), 50);
       });
 
     const actions = contentEl.createDiv({ cls: 'compass-section-actions' });
-    const cancel = actions.createEl('button', { text: 'Отмена' });
-    cancel.onclick = () => this.close();
-    const create = actions.createEl('button', { text: 'Создать файл', cls: 'mod-cta' });
+    actions.createEl('button', { text: 'Отмена' }).onclick = () => this.close();
+    const create = actions.createEl('button', { text: 'Создать заметку', cls: 'mod-cta' });
     create.onclick = async () => {
-      if (!this.name) {
-        new Notice('Введите название файла');
-        return;
-      }
+      if (!this.name) return new Notice('Введите название заметки');
       const file = await this.plugin.createLibraryDocument(this.folderPath, this.name);
       if (file) {
         this.close();
@@ -186,45 +182,136 @@ class NewDocumentModal extends Modal {
   onClose() { this.contentEl.empty(); }
 }
 
-class LibraryModal extends Modal {
-  constructor(app, plugin, folderPath, emoji, label) {
+class NewLibraryFolderModal extends Modal {
+  constructor(app, plugin, parentPath, onCreated) {
     super(app);
     this.plugin = plugin;
-    this.folderPath = folderPath;
+    this.parentPath = parentPath;
+    this.onCreated = onCreated;
+    this.name = '';
+  }
+
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.createEl('h2', { text: 'Новая папка' });
+    new Setting(contentEl)
+      .setName('Название')
+      .setDesc('Внутри неё можно будет создавать другие папки и заметки.')
+      .addText(text => {
+        text.setPlaceholder('Например: Главный двигатель');
+        text.onChange(value => { this.name = value.trim(); });
+        setTimeout(() => text.inputEl.focus(), 50);
+      });
+
+    const actions = contentEl.createDiv({ cls: 'compass-section-actions' });
+    actions.createEl('button', { text: 'Отмена' }).onclick = () => this.close();
+    const create = actions.createEl('button', { text: 'Создать папку', cls: 'mod-cta' });
+    create.onclick = async () => {
+      if (!this.name) return new Notice('Введите название папки');
+      const folder = await this.plugin.createLibraryFolder(this.parentPath, this.name);
+      if (folder) {
+        this.close();
+        if (this.onCreated) this.onCreated(folder);
+      }
+    };
+  }
+
+  onClose() { this.contentEl.empty(); }
+}
+
+class LibraryModal extends Modal {
+  constructor(app, plugin, rootPath, emoji, label, currentPath = null) {
+    super(app);
+    this.plugin = plugin;
+    this.rootPath = rootPath;
+    this.currentPath = currentPath || rootPath;
     this.emoji = emoji;
     this.label = label;
   }
 
   onOpen() { this.render(); }
 
+  getRelativeParts() {
+    if (this.currentPath === this.rootPath) return [];
+    return this.currentPath.slice(this.rootPath.length).replace(/^\//, '').split('/').filter(Boolean);
+  }
+
+  openFolder(path) {
+    this.currentPath = path;
+    this.render();
+  }
+
+  renderBreadcrumbs(container) {
+    const crumbs = container.createDiv({ cls: 'compass-library-breadcrumbs' });
+    const root = crumbs.createEl('button', { text: this.label, cls: 'compass-library-crumb' });
+    root.onclick = () => this.openFolder(this.rootPath);
+    let path = this.rootPath;
+    for (const part of this.getRelativeParts()) {
+      crumbs.createSpan({ text: '›', cls: 'compass-library-crumb-separator' });
+      path = `${path}/${part}`;
+      const target = path;
+      const crumb = crumbs.createEl('button', { text: part, cls: 'compass-library-crumb' });
+      crumb.onclick = () => this.openFolder(target);
+    }
+  }
+
   render() {
     const { contentEl } = this;
     contentEl.empty();
     contentEl.addClass('compass-library-modal');
 
-    const header = contentEl.createDiv({ cls: 'compass-library-header' });
-    header.createEl('h2', { text: `${this.emoji} ${this.label}` });
-    const add = header.createEl('button', { text: '＋ Новый файл', cls: 'mod-cta' });
-    add.onclick = () => {
-      new NewDocumentModal(this.app, this.plugin, this.folderPath, async file => {
-        this.close();
+    const header = contentEl.createDiv({ cls: 'compass-library-header compass-library-browser-header' });
+    const titleWrap = header.createDiv({ cls: 'compass-library-title-wrap' });
+    titleWrap.createEl('h2', { text: `${this.emoji} ${this.currentPath === this.rootPath ? this.label : this.currentPath.split('/').pop()}` });
+    if (this.currentPath !== this.rootPath) {
+      const up = header.createEl('button', { text: '← Назад', cls: 'compass-library-back' });
+      up.onclick = () => {
+        const parent = this.currentPath.split('/').slice(0, -1).join('/');
+        this.openFolder(parent.startsWith(this.rootPath) ? parent : this.rootPath);
+      };
+    }
+
+    this.renderBreadcrumbs(contentEl);
+
+    const createBar = contentEl.createDiv({ cls: 'compass-library-create-bar' });
+    const addFolder = createBar.createEl('button', { text: '＋ Папка', cls: 'mod-cta' });
+    addFolder.onclick = () => new NewLibraryFolderModal(this.app, this.plugin, this.currentPath, () => this.render()).open();
+    const addFile = createBar.createEl('button', { text: '＋ Заметка' });
+    addFile.onclick = () => {
+      new NewDocumentModal(this.app, this.plugin, this.currentPath, async file => {
         await this.app.workspace.getLeaf(false).openFile(file);
       }).open();
     };
 
-    const folder = this.app.vault.getAbstractFileByPath(this.folderPath);
-    const files = folder && Array.isArray(folder.children)
-      ? folder.children.filter(f => f.extension === 'md' && !/^README$/i.test(f.basename)).sort((a, b) => a.basename.localeCompare(b.basename, 'ru'))
-      : [];
+    const folder = this.app.vault.getAbstractFileByPath(this.currentPath);
+    const children = folder && Array.isArray(folder.children) ? [...folder.children] : [];
+    const folders = children
+      .filter(item => Array.isArray(item.children))
+      .sort((a, b) => a.name.localeCompare(b.name, 'ru'));
+    const files = children
+      .filter(item => item.extension === 'md' && !/^README$/i.test(item.basename))
+      .sort((a, b) => a.basename.localeCompare(b.basename, 'ru'));
 
-    if (!files.length) {
-      contentEl.createEl('p', { text: 'Здесь пока нет файлов. Нажми «＋ Новый файл», чтобы создать первый.', cls: 'setting-item-description' });
+    if (!folders.length && !files.length) {
+      contentEl.createEl('p', {
+        text: 'Папка пока пустая. Создай подпапку или заметку.',
+        cls: 'setting-item-description compass-library-empty'
+      });
       return;
     }
 
-    const list = contentEl.createDiv({ cls: 'compass-library-list' });
+    const list = contentEl.createDiv({ cls: 'compass-library-list compass-library-tree-list' });
+    folders.forEach(folderItem => {
+      const button = list.createEl('button', { cls: 'compass-library-entry compass-library-folder' });
+      button.createSpan({ text: '📁', cls: 'compass-library-entry-icon' });
+      button.createSpan({ text: folderItem.name, cls: 'compass-library-entry-name' });
+      button.createSpan({ text: '›', cls: 'compass-library-entry-chevron' });
+      button.onclick = () => this.openFolder(folderItem.path);
+    });
     files.forEach(file => {
-      const button = list.createEl('button', { text: file.basename, cls: 'compass-library-file' });
+      const button = list.createEl('button', { cls: 'compass-library-entry compass-library-note' });
+      button.createSpan({ text: '📄', cls: 'compass-library-entry-icon' });
+      button.createSpan({ text: file.basename, cls: 'compass-library-entry-name' });
       button.onclick = async () => {
         this.close();
         await this.app.workspace.getLeaf(false).openFile(file);
@@ -2220,6 +2307,24 @@ module.exports = class CompassPlugin extends Plugin {
 
   openLibrary(folderPath, emoji, label) {
     new LibraryModal(this.app, this, folderPath, emoji, label).open();
+  }
+
+  async createLibraryFolder(parentPath, name) {
+    const clean = this.sanitizeName(name);
+    if (!clean) {
+      new Notice('Недопустимое название папки');
+      return null;
+    }
+    await this.ensureFolder(parentPath);
+    const path = `${parentPath}/${clean}`;
+    const existing = this.app.vault.getAbstractFileByPath(path);
+    if (existing) {
+      new Notice('Папка или файл с таким названием уже существует');
+      return null;
+    }
+    await this.app.vault.createFolder(path);
+    new Notice(`Папка создана: ${clean}`);
+    return this.app.vault.getAbstractFileByPath(path);
   }
 
   async createLibraryDocument(folderPath, name) {

@@ -1,9 +1,9 @@
 {
   "id": "compass-add",
   "name": "Compass",
-  "version": "2.1.1",
+  "version": "2.1.2",
   "minAppVersion": "1.5.0",
-  "description": "Compass 2.1.1: мобильная клавиатура, диктовка в текст и подготовка email-уведомлений.",
+  "description": "Compass 2.1.2: вложенные папки в базах знаний.",
   "author": "OpenAI",
   "isDesktopOnly": false
 }

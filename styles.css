@@ -512,3 +512,105 @@
     min-height: 28vh;
   }
 }
+
+/* Compass 2.1.2: nested folders in knowledge bases */
+.compass-library-browser-header {
+  margin-bottom: 6px;
+}
+
+.compass-library-title-wrap {
+  min-width: 0;
+}
+
+.compass-library-breadcrumbs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin: 2px 0 12px;
+  color: var(--text-muted);
+}
+
+.compass-library-crumb {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 3px 5px;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.compass-library-crumb:last-of-type {
+  color: var(--text-normal);
+  font-weight: 600;
+}
+
+.compass-library-crumb-separator {
+  color: var(--text-faint);
+}
+
+.compass-library-create-bar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.compass-library-create-bar button {
+  flex: 1 1 140px;
+}
+
+.compass-library-tree-list {
+  gap: 7px;
+}
+
+.compass-library-entry {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  text-align: left;
+  padding: 10px 11px;
+  border-radius: 9px;
+}
+
+.compass-library-entry-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.compass-library-entry-chevron {
+  color: var(--text-muted);
+  font-size: 1.15rem;
+}
+
+.compass-library-folder {
+  font-weight: 600;
+}
+
+.compass-library-note {
+  grid-template-columns: 26px minmax(0, 1fr);
+}
+
+.compass-library-back {
+  white-space: nowrap;
+}
+
+.compass-library-empty {
+  margin-top: 14px;
+}
+
+@media (max-width: 500px) {
+  .compass-library-browser-header {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .compass-library-create-bar {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+}

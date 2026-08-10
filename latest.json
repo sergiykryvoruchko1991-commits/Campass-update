@@ -1,12 +1,12 @@
 {
-  "version": "2.1.1",
-  "minInstalledVersion": "2.1.0",
+  "version": "2.1.2",
+  "minInstalledVersion": "2.1.1",
   "releaseNotes": [
-    "Исправлено поведение поля ввода на мобильном: при открытой клавиатуре текст и элементы ввода остаются доступными.",
-    "Добавлена кнопка 🎙️ «Диктовать» для первоначальной позиции, редактирования и дальнейшего обсуждения. Если Web Speech недоступен, Compass открывает поле для системной диктовки клавиатуры.",
-    "Добавлен переключатель 📩 Email в «Отношениях» и клиентский вызов безопасной Supabase Edge Function для уведомлений о новой теме, первом ответе, новом сообщении и предложении закрытия.",
-    "Email не блокирует сообщения: если почтовая функция временно недоступна, разговор продолжает работать.",
-    "Пользовательские заметки, вложения и данные «Отношений» не входят в пакет обновления."
+    "Добавлены вложенные папки внутри любых баз знаний.",
+    "В каждой папке можно создавать новые подпапки без ограничения глубины.",
+    "Заметки можно создавать на любом уровне рядом с папками.",
+    "Добавлены навигация «Назад» и хлебные крошки по структуре базы знаний.",
+    "Пользовательские заметки, папки, вложения и данные «Отношений» не перезаписываются обновлением."
   ],
   "touchesUserData": false,
   "requiresSupabaseMigration": false,
@@ -14,17 +14,17 @@
     {
       "path": "main.js",
       "url": "https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/main.js",
-      "sha256": "9ee44cfe10ff97c6a5363a2bc87a608b9d523bb36def02246ebe325e2133ac86"
+      "sha256": "f3ec9d97ced0f5ed1c1ccff34edce737d2207a16cdddc3961d2463e2dac9049c"
     },
     {
       "path": "styles.css",
       "url": "https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/styles.css",
-      "sha256": "a94a07e3f2cae7d3b39981eae1df36b102e7b2c2154fd9b81c83e7bc847fc5ea"
+      "sha256": "913872ff495c1121948d7d686385fdffa3d5db14d958367b57a6779b7153bda3"
     },
     {
       "path": "manifest.json",
       "url": "https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/manifest.json",
-      "sha256": "e0cc8dae351bd4fd2be14d274c7c7c5d5e9b6d703a7b8bf25cfdb6f035310273"
+      "sha256": "0e4a48e6d3ec8b3088fb915759fdcdce66931684e8015323852a8eac8adb744d"
     }
   ]
 }
