@@ -378,3 +378,72 @@
 /* Compass 2.0 updater */
 .compass-update-modal .compass-update-actions { display:flex; gap:10px; flex-wrap:wrap; margin-top:18px; }
 .compass-update-modal ul { padding-left:22px; }
+
+/* Compass 2.1 relationships */
+.compass-topic-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.compass-topic-header h2 { margin: 0 0 4px; }
+.compass-topic-header small { color: var(--text-muted); }
+.compass-topic-status {
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--background-secondary);
+  color: var(--text-muted);
+  margin: 8px 0 14px;
+}
+.compass-topic-status.status-close_requested { font-weight: 600; }
+.compass-topic-status.status-closed { opacity: .8; }
+.compass-discussion-title { margin-top: 20px; }
+.compass-message-list { display: flex; flex-direction: column; gap: 10px; margin: 10px 0 14px; }
+.compass-message-card {
+  border: 1px solid var(--background-modifier-border);
+  border-left-width: 4px;
+  border-radius: 12px;
+  padding: 11px 12px;
+  background: var(--background-secondary);
+}
+.compass-message-head { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; margin-bottom: 7px; }
+.compass-message-head h3 { margin: 0; }
+.compass-message-head small { color: var(--text-muted); font-size: .78rem; }
+.compass-author-blue { border-left-color: #4d8df7; }
+.compass-author-green { border-left-color: #43a66d; }
+.compass-author-purple { border-left-color: #9a6ce0; }
+.compass-author-orange { border-left-color: #e38b3a; }
+.compass-message-card.is-awaiting-response {
+  box-shadow: 0 0 0 2px var(--interactive-accent);
+  background: var(--background-primary-alt);
+}
+.compass-color-picker { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 8px 0 12px; }
+.compass-color-dot { width: 28px; height: 28px; min-width: 28px; border-radius: 999px; padding: 0; border: 2px solid transparent; }
+.compass-color-dot.color-blue { background: #4d8df7; }
+.compass-color-dot.color-green { background: #43a66d; }
+.compass-color-dot.color-purple { background: #9a6ce0; }
+.compass-color-dot.color-orange { background: #e38b3a; }
+.compass-color-dot.is-active { outline: 2px solid var(--text-normal); outline-offset: 2px; }
+.compass-inline-action { margin-top: 10px; font-size: .82rem; padding: 5px 9px; }
+.compass-message-composer textarea { width: 100%; min-height: 120px; resize: vertical; }
+.compass-close-request-card, .compass-closed-card {
+  padding: 14px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 12px;
+  margin-top: 14px;
+  background: var(--background-secondary);
+}
+.compass-waiting-count { margin: 8px 0 12px; font-weight: 600; }
+.compass-topic-row-top { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.compass-topic-row-top span { color: var(--text-muted); font-size: .8rem; white-space: nowrap; }
+.compass-situation-row.priority-0 { box-shadow: inset 3px 0 0 var(--interactive-accent); }
+.compass-situation-row.priority-2 { opacity: .72; }
+@media (max-width: 500px) {
+  .compass-topic-header, .compass-message-head, .compass-topic-row-top { flex-direction: column; align-items: stretch; }
+}
+.compass-perspective-card.is-awaiting-response,
+.compass-message-card.is-awaiting-response {
+  box-shadow: 0 0 0 2px var(--interactive-accent);
+  background: var(--background-primary-alt);
+}

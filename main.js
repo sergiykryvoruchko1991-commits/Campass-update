@@ -1,7 +1,7 @@
 const { Plugin, Modal, Notice, ItemView, MarkdownView, moment, setIcon, Setting, PluginSettingTab, requestUrl } = require('obsidian');
 
 const VIEW_TYPE = 'compass-sidebar-view';
-const COMPASS_PLUGIN_VERSION = '2.0.2';
+const COMPASS_PLUGIN_VERSION = '2.1.0';
 const COMPASS_DATA_SCHEMA_VERSION = 3;
 
 const COMPASS_UPDATE_MANIFEST_URL = 'https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/latest.json';
@@ -487,6 +487,7 @@ class NewRelationshipSituationModal extends Modal {
     this.plugin = plugin;
     this.onDone = onDone;
     this.existingSituation = existingSituation;
+    this.title = '';
     this.text = '';
     this.cleanupKeyboardDismiss = null;
   }
@@ -496,8 +497,18 @@ class NewRelationshipSituationModal extends Modal {
     this.cleanupKeyboardDismiss = attachMobileKeyboardDismiss(contentEl);
     contentEl.addClass('compass-situation-editor');
     const header = contentEl.createDiv({ cls: 'compass-situation-editor-header' });
-    header.createEl('h2', { text: this.existingSituation ? 'Моя сторона' : 'Новая ситуация' });
+    header.createEl('h2', { text: this.existingSituation ? 'Моя позиция' : 'Новая тема' });
     header.createEl('small', { text: moment().format('D MMMM YYYY · HH:mm') });
+
+    if (!this.existingSituation) {
+      new Setting(contentEl)
+        .setName('Название темы')
+        .setDesc('Например: Отпуск, Бюджет, Покупка машины. Название также шифруется.')
+        .addText(text => {
+          text.setPlaceholder('Название темы');
+          text.onChange(value => { this.title = value.trim(); });
+        });
+    }
 
     const textarea = contentEl.createEl('textarea', {
       cls: 'compass-situation-textarea',
@@ -519,16 +530,20 @@ class NewRelationshipSituationModal extends Modal {
     cancel.onclick = () => this.close();
     const finish = actions.createEl('button', { text: 'Завершить 🔒', cls: 'mod-cta' });
     finish.onclick = async () => {
+      if (!this.existingSituation && !this.title) {
+        new Notice('Введите название темы');
+        return;
+      }
       if (!this.text.trim()) {
         new Notice('Запись пока пустая');
         return;
       }
-      if (!window.confirm('После завершения первоначальную запись нельзя будет изменить. Завершить?')) return;
+      if (!window.confirm('Завершить первоначальную позицию? Текст партнёра откроется только после завершения обеими сторонами.')) return;
       finish.disabled = true;
       finish.setText('Сохраняю…');
       try {
         if (this.existingSituation) await this.plugin.addRelationshipEntry(this.existingSituation.id, this.text.trim());
-        else await this.plugin.createRelationshipSituation(this.text.trim());
+        else await this.plugin.createRelationshipSituation(this.title, this.text.trim());
         this.close();
         new Notice('Запись завершена и зашифрована 🔒');
         if (this.onDone) this.onDone();
@@ -548,58 +563,281 @@ class NewRelationshipSituationModal extends Modal {
   }
 }
 
+class RelationshipEditTextModal extends Modal {
+  constructor(app, plugin, title, initialText, onSave) {
+    super(app);
+    this.plugin = plugin;
+    this.title = title;
+    this.value = initialText || '';
+    this.onSave = onSave;
+    this.cleanupKeyboardDismiss = null;
+  }
+
+  onOpen() {
+    const { contentEl } = this;
+    this.cleanupKeyboardDismiss = attachMobileKeyboardDismiss(contentEl);
+    contentEl.createEl('h2', { text: this.title });
+    const textarea = contentEl.createEl('textarea', { cls: 'compass-situation-textarea' });
+    textarea.value = this.value;
+    textarea.addEventListener('input', () => { this.value = textarea.value; });
+    const keyboardActions = contentEl.createDiv({ cls: 'compass-keyboard-actions' });
+    const hideKeyboard = keyboardActions.createEl('button', { text: '⌄ Скрыть клавиатуру', cls: 'compass-hide-keyboard' });
+    hideKeyboard.onclick = () => blurActiveEditable();
+    const actions = contentEl.createDiv({ cls: 'compass-section-actions' });
+    const cancel = actions.createEl('button', { text: 'Отмена' });
+    cancel.onclick = () => this.close();
+    const save = actions.createEl('button', { text: 'Сохранить', cls: 'mod-cta' });
+    save.onclick = async () => {
+      if (!this.value.trim()) return new Notice('Текст не может быть пустым');
+      save.disabled = true;
+      try {
+        await this.onSave(this.value.trim());
+        this.close();
+      } catch (e) {
+        new Notice(`Не удалось сохранить: ${e.message || e}`);
+        save.disabled = false;
+      }
+    };
+    setTimeout(() => textarea.focus(), 50);
+  }
+
+  onClose() {
+    blurActiveEditable();
+    if (this.cleanupKeyboardDismiss) this.cleanupKeyboardDismiss();
+    this.contentEl.empty();
+  }
+}
+
+class RelationshipRenameModal extends Modal {
+  constructor(app, plugin, situation, currentTitle, onDone) {
+    super(app);
+    this.plugin = plugin;
+    this.situation = situation;
+    this.value = currentTitle || '';
+    this.onDone = onDone;
+  }
+
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.createEl('h2', { text: 'Переименовать тему' });
+    new Setting(contentEl).setName('Название').addText(text => {
+      text.setValue(this.value);
+      text.onChange(value => { this.value = value.trim(); });
+      setTimeout(() => text.inputEl.focus(), 50);
+    });
+    const actions = contentEl.createDiv({ cls: 'compass-section-actions' });
+    actions.createEl('button', { text: 'Отмена' }).onclick = () => this.close();
+    const save = actions.createEl('button', { text: 'Сохранить', cls: 'mod-cta' });
+    save.onclick = async () => {
+      if (!this.value) return new Notice('Название не может быть пустым');
+      try {
+        await this.plugin.renameRelationshipTopic(this.situation.id, this.value);
+        this.close();
+        if (this.onDone) this.onDone();
+      } catch (e) { new Notice(`Не удалось переименовать: ${e.message || e}`); }
+    };
+  }
+}
+
 class RelationshipSituationModal extends Modal {
   constructor(app, plugin, situation) {
     super(app);
     this.plugin = plugin;
     this.situation = situation;
+    this.cleanupKeyboardDismiss = null;
   }
 
   async onOpen() {
-    const { contentEl } = this;
-    contentEl.addClass('compass-relationship-situation');
-    contentEl.createEl('h2', { text: '❤️ Ситуация' });
-    contentEl.createEl('p', { text: moment(this.situation.created_at).format('D MMMM YYYY · HH:mm'), cls: 'setting-item-description' });
-    const loading = contentEl.createEl('p', { text: 'Открываю записи…' });
-    try {
-      const entries = await this.plugin.getRelationshipEntries(this.situation.id);
-      loading.remove();
-      const own = entries.find(e => e.author_id === this.plugin.relationshipSession.user.id);
-      const other = entries.find(e => e.author_id !== this.plugin.relationshipSession.user.id);
+    this.cleanupKeyboardDismiss = attachMobileKeyboardDismiss(this.contentEl);
+    await this.render();
+  }
 
-      if (own) {
-        const section = contentEl.createDiv({ cls: 'compass-perspective-card' });
-        section.createEl('h3', { text: 'Моя запись' });
-        section.createEl('div', { text: await this.plugin.decryptRelationshipText(own), cls: 'compass-perspective-text' });
-      } else {
+  async render() {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.addClass('compass-relationship-situation');
+    const loading = contentEl.createEl('p', { text: 'Открываю тему…' });
+    try {
+      const fresh = await this.plugin.getRelationshipSituation(this.situation.id);
+      if (fresh) this.situation = fresh;
+      const [entries, messages, prefs] = await Promise.all([
+        this.plugin.getRelationshipEntries(this.situation.id),
+        this.plugin.getRelationshipMessages(this.situation.id).catch(() => []),
+        this.plugin.getRelationshipPreferences().catch(() => [])
+      ]);
+      loading.remove();
+      const me = this.plugin.relationshipSession.user.id;
+      const own = entries.find(e => e.author_id === me);
+      const other = entries.find(e => e.author_id !== me);
+      const bothReady = Boolean(own && other);
+      const title = await this.plugin.decodeRelationshipTitle(this.situation.title, this.situation);
+      const header = contentEl.createDiv({ cls: 'compass-topic-header' });
+      const heading = header.createDiv();
+      heading.createEl('h2', { text: `❤️ ${title || 'Без названия'}` });
+      heading.createEl('small', { text: moment(this.situation.created_at).format('D MMMM YYYY · HH:mm') });
+      if (this.situation.status === 'open') {
+        const rename = header.createEl('button', { text: '✎ Название' });
+        rename.onclick = () => new RelationshipRenameModal(this.app, this.plugin, this.situation, title, async () => this.render()).open();
+      }
+
+      const status = contentEl.createDiv({ cls: `compass-topic-status status-${this.situation.status || 'open'}` });
+      status.setText(this.plugin.relationshipStatusLabel(this.situation, entries, messages));
+
+      if (own) await this.renderEntryCard(contentEl, own, 'Моя первоначальная позиция', true, bothReady, messages);
+      else {
         const empty = contentEl.createDiv({ cls: 'compass-waiting-card' });
-        empty.createEl('strong', { text: 'Твоя сторона ещё пустая' });
-        empty.createEl('p', { text: 'Напиши свою версию свободным текстом. Чужая запись до завершения обеими сторонами не откроется.' });
-        const addMine = empty.createEl('button', { text: 'Написать свою сторону', cls: 'mod-cta' });
+        empty.createEl('strong', { text: 'Твоя первоначальная позиция ещё не написана' });
+        empty.createEl('p', { text: 'Позиция партнёра останется скрытой, пока ты не завершишь свою.' });
+        const addMine = empty.createEl('button', { text: 'Написать свою позицию', cls: 'mod-cta' });
         addMine.onclick = () => {
           this.close();
           new NewRelationshipSituationModal(this.app, this.plugin, () => new RelationshipSituationModal(this.app, this.plugin, this.situation).open(), this.situation).open();
         };
       }
 
-      if (other) {
-        const section = contentEl.createDiv({ cls: 'compass-perspective-card' });
-        section.createEl('h3', { text: 'Запись партнёра' });
-        section.createEl('div', { text: await this.plugin.decryptRelationshipText(other), cls: 'compass-perspective-text' });
-        await this.plugin.archiveCompletedRelationshipSituation(this.situation, entries);
-      } else {
+      if (other) await this.renderEntryCard(contentEl, other, 'Позиция партнёра', false, bothReady, messages);
+      else {
         const wait = contentEl.createDiv({ cls: 'compass-waiting-card' });
         wait.createEl('strong', { text: 'Ожидание второй стороны' });
-        wait.createEl('p', { text: 'Чужая запись откроется только после того, как обе стороны завершат свои тексты.' });
-        const refresh = wait.createEl('button', { text: 'Обновить записи' });
-        refresh.onclick = () => { this.close(); setTimeout(() => new RelationshipSituationModal(this.app, this.plugin, this.situation).open(), 150); };
+        wait.createEl('p', { text: 'Чужая позиция откроется только после того, как обе стороны завершат первоначальные тексты.' });
+        const refresh = wait.createEl('button', { text: 'Обновить' });
+        refresh.onclick = () => this.render();
+      }
+
+      if (bothReady) {
+        contentEl.createEl('h3', { text: 'Обсуждение', cls: 'compass-discussion-title' });
+        this.renderColorPicker(contentEl, prefs);
+        await this.renderMessages(contentEl, messages, prefs);
+        await this.renderDiscussionActions(contentEl, messages);
       }
     } catch (e) {
       loading.setText(`Не удалось открыть: ${e.message || e}`);
     }
   }
 
-  onClose() { this.contentEl.empty(); }
+  async renderEntryCard(container, entry, label, isOwn, bothReady, messages = []) {
+    const text = await this.plugin.decryptRelationshipText(entry);
+    const color = isOwn ? (await this.plugin.getMyRelationshipColor()) : (await this.plugin.getPartnerRelationshipColor());
+    const edited = entry.updated_at && Math.abs(new Date(entry.updated_at) - new Date(entry.created_at)) > 3000;
+    const me = this.plugin.relationshipSession.user.id;
+    const lastOwnReplyAt = messages.filter(m => m.author_id === me).reduce((max, m) => Math.max(max, +new Date(m.created_at)), 0);
+    const partnerEditAwaiting = !isOwn && edited && (+new Date(entry.updated_at) > lastOwnReplyAt);
+    const card = container.createDiv({ cls: `compass-perspective-card compass-author-${color || (isOwn ? 'blue' : 'green')}${partnerEditAwaiting ? ' is-awaiting-response' : ''}` });
+    const h = card.createDiv({ cls: 'compass-message-head' });
+    h.createEl('h3', { text: label });
+    if (edited) h.createEl('small', { text: `Изменено ${moment(entry.updated_at).format('DD.MM.YYYY HH:mm')}` });
+    card.createEl('div', { text, cls: 'compass-perspective-text' });
+    if (isOwn && bothReady && this.situation.status === 'open') {
+      const edit = card.createEl('button', { text: '✎ Изменить', cls: 'compass-inline-action' });
+      edit.onclick = () => new RelationshipEditTextModal(this.app, this.plugin, 'Изменить первоначальную позицию', text, async value => {
+        await this.plugin.updateRelationshipEntry(entry.id, value);
+        await this.render();
+      }).open();
+    }
+  }
+
+  renderColorPicker(container, prefs) {
+    const me = this.plugin.relationshipSession.user.id;
+    const mine = prefs.find(p => p.user_id === me)?.accent_color || 'blue';
+    const wrap = container.createDiv({ cls: 'compass-color-picker' });
+    wrap.createSpan({ text: 'Мой цвет:' });
+    ['blue', 'green', 'purple', 'orange'].forEach(color => {
+      const b = wrap.createEl('button', { cls: `compass-color-dot color-${color}${mine === color ? ' is-active' : ''}`, attr: { 'aria-label': color } });
+      b.onclick = async () => {
+        try {
+          await this.plugin.setRelationshipAccentColor(color);
+          await this.render();
+        } catch (e) { new Notice(`Не удалось изменить цвет: ${e.message || e}`); }
+      };
+    });
+  }
+
+  async renderMessages(container, messages, prefs) {
+    const me = this.plugin.relationshipSession.user.id;
+    const prefMap = new Map(prefs.map(p => [p.user_id, p.accent_color]));
+    const lastOwnNewReplyAt = messages.filter(m => m.author_id === me).reduce((max, m) => Math.max(max, +new Date(m.created_at)), 0);
+    const list = container.createDiv({ cls: 'compass-message-list' });
+    if (!messages.length) list.createEl('p', { text: 'Продолжения пока нет. Можно написать первый комментарий.', cls: 'setting-item-description' });
+    for (const msg of messages) {
+      const isOwn = msg.author_id === me;
+      const text = await this.plugin.decryptRelationshipText(msg);
+      const color = prefMap.get(msg.author_id) || (isOwn ? 'blue' : 'green');
+      const effectiveAt = Math.max(+new Date(msg.created_at), +new Date(msg.updated_at || msg.created_at));
+      const waitingForMe = !isOwn && effectiveAt > lastOwnNewReplyAt;
+      const edited = msg.updated_at && Math.abs(new Date(msg.updated_at) - new Date(msg.created_at)) > 3000;
+      const card = list.createDiv({ cls: `compass-message-card compass-author-${color}${waitingForMe ? ' is-awaiting-response' : ''}` });
+      const head = card.createDiv({ cls: 'compass-message-head' });
+      head.createEl('strong', { text: isOwn ? 'Я' : 'Партнёр' });
+      head.createEl('small', { text: moment(msg.created_at).format('DD.MM.YYYY HH:mm') + (edited ? ` · изменено ${moment(msg.updated_at).format('DD.MM.YYYY HH:mm')}` : '') });
+      card.createEl('div', { text, cls: 'compass-perspective-text' });
+      if (isOwn && this.situation.status === 'open') {
+        const edit = card.createEl('button', { text: '✎ Изменить', cls: 'compass-inline-action' });
+        edit.onclick = () => new RelationshipEditTextModal(this.app, this.plugin, 'Изменить сообщение', text, async value => {
+          await this.plugin.updateRelationshipMessage(msg.id, value);
+          await this.render();
+        }).open();
+      }
+    }
+  }
+
+  async renderDiscussionActions(container, messages) {
+    const me = this.plugin.relationshipSession.user.id;
+    if (this.situation.status === 'closed') {
+      const closed = container.createDiv({ cls: 'compass-closed-card' });
+      closed.createEl('strong', { text: '🔒 Тема закрыта' });
+      closed.createEl('p', { text: 'Обсуждение зафиксировано. Новые сообщения и изменения больше недоступны.' });
+      return;
+    }
+
+    if (this.situation.status === 'close_requested') {
+      const requesterIsMe = this.situation.close_requested_by === me;
+      const closeCard = container.createDiv({ cls: 'compass-close-request-card' });
+      closeCard.createEl('strong', { text: requesterIsMe ? 'Закрытие предложено' : 'Партнёр предлагает закрыть тему' });
+      closeCard.createEl('p', { text: requesterIsMe ? 'Ждём решения партнёра.' : 'Если разговор завершён, подтверди закрытие. Иначе продолжи обсуждение.' });
+      const actions = closeCard.createDiv({ cls: 'compass-section-actions' });
+      if (!requesterIsMe) {
+        const confirm = actions.createEl('button', { text: '🔒 Закрыть тему', cls: 'mod-cta' });
+        confirm.onclick = async () => {
+          if (!window.confirm('После закрытия тему нельзя будет редактировать или продолжать. Закрыть?')) return;
+          try { await this.plugin.confirmCloseRelationshipTopic(this.situation.id); await this.render(); }
+          catch (e) { new Notice(`Не удалось закрыть: ${e.message || e}`); }
+        };
+      }
+      const cancel = actions.createEl('button', { text: requesterIsMe ? 'Отменить предложение' : 'Продолжить обсуждение' });
+      cancel.onclick = async () => {
+        try { await this.plugin.cancelCloseRelationshipTopic(this.situation.id); await this.render(); }
+        catch (e) { new Notice(`Не удалось продолжить: ${e.message || e}`); }
+      };
+      return;
+    }
+
+    const composer = container.createDiv({ cls: 'compass-message-composer' });
+    const textarea = composer.createEl('textarea', { attr: { placeholder: 'Продолжить обсуждение…' } });
+    const keyboardActions = composer.createDiv({ cls: 'compass-keyboard-actions' });
+    const hideKeyboard = keyboardActions.createEl('button', { text: '⌄ Скрыть клавиатуру', cls: 'compass-hide-keyboard' });
+    hideKeyboard.onclick = () => blurActiveEditable();
+    const actions = composer.createDiv({ cls: 'compass-section-actions' });
+    const send = actions.createEl('button', { text: 'Отправить', cls: 'mod-cta' });
+    send.onclick = async () => {
+      const value = textarea.value.trim();
+      if (!value) return new Notice('Напиши сообщение');
+      send.disabled = true;
+      try { await this.plugin.addRelationshipMessage(this.situation.id, value); await this.render(); }
+      catch (e) { new Notice(`Не удалось отправить: ${e.message || e}`); send.disabled = false; }
+    };
+    const requestClose = actions.createEl('button', { text: '🔒 Предложить закрыть тему' });
+    requestClose.onclick = async () => {
+      if (!window.confirm('Предложить партнёру закрыть эту тему?')) return;
+      try { await this.plugin.requestCloseRelationshipTopic(this.situation.id); await this.render(); }
+      catch (e) { new Notice(`Не удалось предложить закрытие: ${e.message || e}`); }
+    };
+  }
+
+  onClose() {
+    blurActiveEditable();
+    if (this.cleanupKeyboardDismiss) this.cleanupKeyboardDismiss();
+    this.contentEl.empty();
+  }
 }
 
 class RelationshipsModal extends Modal {
@@ -617,33 +855,36 @@ class RelationshipsModal extends Modal {
 
     const header = contentEl.createDiv({ cls: 'compass-library-header' });
     header.createEl('h2', { text: '❤️ Отношения' });
-    const add = header.createEl('button', { text: '＋ Новая ситуация', cls: 'mod-cta' });
+    const add = header.createEl('button', { text: '＋ Новая тема', cls: 'mod-cta' });
     add.onclick = () => new NewRelationshipSituationModal(this.app, this.plugin, () => this.render()).open();
 
     contentEl.createEl('p', {
-      text: 'Свободные записи двух сторон. Пока оба не завершат текст, вы не видите запись друг друга.',
+      text: 'Несколько параллельных тем. Первые позиции скрыты до завершения обеими сторонами, затем разговор можно продолжать.',
       cls: 'setting-item-description'
     });
 
     const loading = contentEl.createEl('p', { text: 'Загружаю…' });
     try {
       const situations = await this.plugin.getRelationshipSituations();
+      const summaries = [];
+      for (const situation of situations) summaries.push(await this.plugin.getRelationshipSituationSummary(situation));
+      summaries.sort((a, b) => (a.priority - b.priority) || (b.activityAt - a.activityAt));
       loading.remove();
-      if (!situations.length) {
-        contentEl.createEl('p', { text: 'Здесь пока нет ситуаций.' });
+      if (!summaries.length) {
+        contentEl.createEl('p', { text: 'Здесь пока нет тем.' });
         return;
       }
+      const waitingCount = summaries.filter(s => s.priority === 0).length;
+      if (waitingCount) contentEl.createEl('div', { text: `● Ждут твоего ответа: ${waitingCount}`, cls: 'compass-waiting-count' });
       const list = contentEl.createDiv({ cls: 'compass-situations-list' });
-      for (const situation of situations) {
-        const row = list.createEl('button', { cls: 'compass-situation-row' });
-        row.createEl('strong', { text: moment(situation.created_at).format('D MMMM YYYY · HH:mm') });
-        const status = row.createEl('small', { text: 'Проверяю статус…' });
-        try {
-          const entries = await this.plugin.getRelationshipEntries(situation.id);
-          if (entries.length >= 2) status.setText('Обе стороны готовы · открыть');
-          else if (entries.some(e => e.author_id === this.plugin.relationshipSession.user.id)) status.setText('Моя запись завершена · ждём вторую сторону');
-          else status.setText('Нужна моя запись');
-        } catch (_) { status.setText('Открыть'); }
+      for (const summary of summaries) {
+        const { situation, statusText, priority } = summary;
+        const title = await this.plugin.decodeRelationshipTitle(situation.title, situation);
+        const row = list.createEl('button', { cls: `compass-situation-row priority-${priority}` });
+        const top = row.createDiv({ cls: 'compass-topic-row-top' });
+        top.createEl('strong', { text: title || `Тема от ${moment(situation.created_at).format('DD.MM.YYYY')}` });
+        top.createEl('span', { text: moment(situation.created_at).format('DD.MM.YYYY') });
+        row.createEl('small', { text: statusText });
         row.onclick = () => new RelationshipSituationModal(this.app, this.plugin, situation).open();
       }
     } catch (e) {
@@ -1385,16 +1626,34 @@ module.exports = class CompassPlugin extends Plugin {
     return new TextDecoder().decode(plain);
   }
 
-  async createRelationshipSituation(text) {
+  async encodeRelationshipTitle(title) {
+    const encrypted = await this.encryptRelationshipText(String(title || '').trim());
+    return `enc1:${encrypted.encryption_iv}:${encrypted.encrypted_content}`;
+  }
+
+  async decodeRelationshipTitle(value, situation = null) {
+    const raw = String(value || '');
+    if (!raw) return situation ? `Тема от ${moment(situation.created_at).format('DD.MM.YYYY')}` : '';
+    if (!raw.startsWith('enc1:')) return raw;
+    const rest = raw.slice(5);
+    const idx = rest.indexOf(':');
+    if (idx < 0) return 'Зашифрованная тема';
+    try {
+      return await this.decryptRelationshipText({ encryption_iv: rest.slice(0, idx), encrypted_content: rest.slice(idx + 1) });
+    } catch (_) { return 'Зашифрованная тема'; }
+  }
+
+  async createRelationshipSituation(title, text) {
     const session = this.relationshipSession;
     if (!session?.spaceId) throw new Error('Нет активного пространства');
-    const situations = await this.supabaseRequest('/rest/v1/situations?select=id,space_id,created_by,created_at', {
+    const encryptedTitle = await this.encodeRelationshipTitle(title);
+    const situations = await this.supabaseRequest('/rest/v1/situations?select=id,space_id,created_by,title,status,created_at,updated_at,close_requested_by,close_requested_at,closed_at', {
       method: 'POST',
       headers: { Prefer: 'return=representation' },
-      body: JSON.stringify({ space_id: session.spaceId, created_by: session.user.id, title: null })
+      body: JSON.stringify({ space_id: session.spaceId, created_by: session.user.id, title: encryptedTitle })
     });
     const situation = Array.isArray(situations) ? situations[0] : null;
-    if (!situation?.id) throw new Error('Не удалось создать ситуацию');
+    if (!situation?.id) throw new Error('Не удалось создать тему');
     const encrypted = await this.encryptRelationshipText(text);
     await this.supabaseRequest('/rest/v1/entries', {
       method: 'POST',
@@ -1409,7 +1668,6 @@ module.exports = class CompassPlugin extends Plugin {
     });
     return situation;
   }
-
 
   async addRelationshipEntry(situationId, text) {
     const session = this.relationshipSession;
@@ -1431,27 +1689,160 @@ module.exports = class CompassPlugin extends Plugin {
   async getRelationshipSituations() {
     const spaceId = this.relationshipSession?.spaceId;
     if (!spaceId) return [];
-    const rows = await this.supabaseRequest(`/rest/v1/situations?select=id,space_id,created_by,created_at&space_id=eq.${encodeURIComponent(spaceId)}&order=created_at.desc`);
+    const fields = 'id,space_id,created_by,title,status,created_at,updated_at,close_requested_by,close_requested_at,closed_at';
+    const rows = await this.supabaseRequest(`/rest/v1/situations?select=${fields}&space_id=eq.${encodeURIComponent(spaceId)}&order=updated_at.desc`);
     return Array.isArray(rows) ? rows : [];
+  }
+
+  async getRelationshipSituation(situationId) {
+    const fields = 'id,space_id,created_by,title,status,created_at,updated_at,close_requested_by,close_requested_at,closed_at';
+    const rows = await this.supabaseRequest(`/rest/v1/situations?select=${fields}&id=eq.${encodeURIComponent(situationId)}&limit=1`);
+    return Array.isArray(rows) ? rows[0] || null : null;
   }
 
   async getRelationshipEntries(situationId) {
-    const rows = await this.supabaseRequest(`/rest/v1/entries?select=id,situation_id,author_id,encrypted_content,encryption_iv,is_finished,created_at,finished_at&situation_id=eq.${encodeURIComponent(situationId)}&order=created_at.asc`);
+    const rows = await this.supabaseRequest(`/rest/v1/entries?select=id,situation_id,author_id,encrypted_content,encryption_iv,is_finished,created_at,finished_at,updated_at&situation_id=eq.${encodeURIComponent(situationId)}&order=created_at.asc`);
     return Array.isArray(rows) ? rows : [];
   }
 
-  async archiveCompletedRelationshipSituation(situation, entries) {
-    if (!Array.isArray(entries) || entries.length < 2) return;
-    await this.ensureFolder('02 Базы знаний/Отношения');
-    const path = `02 Базы знаний/Отношения/${moment(situation.created_at).format('YYYY-MM-DD HHmm')} - ${situation.id.slice(0, 8)}.md`;
-    if (this.app.vault.getAbstractFileByPath(path)) return;
-    const own = entries.find(e => e.author_id === this.relationshipSession.user.id);
-    const other = entries.find(e => e.author_id !== this.relationshipSession.user.id);
-    if (!own || !other) return;
-    const ownText = await this.decryptRelationshipText(own);
-    const otherText = await this.decryptRelationshipText(other);
-    const content = `# ❤️ Ситуация — ${moment(situation.created_at).format('D MMMM YYYY · HH:mm')}\n\n## Моя запись\n\n${ownText}\n\n## Запись партнёра\n\n${otherText}\n`;
-    await this.app.vault.create(path, content);
+  async getRelationshipMessages(situationId) {
+    const rows = await this.supabaseRequest(`/rest/v1/relationship_messages?select=id,situation_id,author_id,encrypted_content,encryption_iv,created_at,updated_at&situation_id=eq.${encodeURIComponent(situationId)}&order=created_at.asc`);
+    return Array.isArray(rows) ? rows : [];
+  }
+
+  async addRelationshipMessage(situationId, text) {
+    const encrypted = await this.encryptRelationshipText(text);
+    await this.supabaseRequest('/rest/v1/relationship_messages', {
+      method: 'POST',
+      headers: { Prefer: 'return=minimal' },
+      body: JSON.stringify({
+        situation_id: situationId,
+        author_id: this.relationshipSession.user.id,
+        encrypted_content: encrypted.encrypted_content,
+        encryption_iv: encrypted.encryption_iv
+      })
+    });
+  }
+
+  async updateRelationshipEntry(entryId, text) {
+    const encrypted = await this.encryptRelationshipText(text);
+    await this.supabaseRequest(`/rest/v1/entries?id=eq.${encodeURIComponent(entryId)}`, {
+      method: 'PATCH',
+      headers: { Prefer: 'return=minimal' },
+      body: JSON.stringify({ encrypted_content: encrypted.encrypted_content, encryption_iv: encrypted.encryption_iv })
+    });
+  }
+
+  async updateRelationshipMessage(messageId, text) {
+    const encrypted = await this.encryptRelationshipText(text);
+    await this.supabaseRequest(`/rest/v1/relationship_messages?id=eq.${encodeURIComponent(messageId)}`, {
+      method: 'PATCH',
+      headers: { Prefer: 'return=minimal' },
+      body: JSON.stringify({ encrypted_content: encrypted.encrypted_content, encryption_iv: encrypted.encryption_iv })
+    });
+  }
+
+  async getRelationshipPreferences() {
+    const spaceId = this.relationshipSession?.spaceId;
+    if (!spaceId) return [];
+    const rows = await this.supabaseRequest(`/rest/v1/relationship_member_preferences?select=space_id,user_id,accent_color,email_notifications_enabled,updated_at&space_id=eq.${encodeURIComponent(spaceId)}`);
+    return Array.isArray(rows) ? rows : [];
+  }
+
+  async getMyRelationshipColor() {
+    const prefs = await this.getRelationshipPreferences().catch(() => []);
+    return prefs.find(p => p.user_id === this.relationshipSession?.user?.id)?.accent_color || 'blue';
+  }
+
+  async getPartnerRelationshipColor() {
+    const prefs = await this.getRelationshipPreferences().catch(() => []);
+    return prefs.find(p => p.user_id !== this.relationshipSession?.user?.id)?.accent_color || 'green';
+  }
+
+  async setRelationshipAccentColor(color) {
+    if (!['blue', 'green', 'purple', 'orange'].includes(color)) throw new Error('Недопустимый цвет');
+    const spaceId = this.relationshipSession?.spaceId;
+    const userId = this.relationshipSession?.user?.id;
+    if (!spaceId || !userId) throw new Error('Нет активного сеанса');
+    const existing = await this.supabaseRequest(`/rest/v1/relationship_member_preferences?select=space_id,user_id&space_id=eq.${encodeURIComponent(spaceId)}&user_id=eq.${encodeURIComponent(userId)}&limit=1`);
+    if (Array.isArray(existing) && existing.length) {
+      await this.supabaseRequest(`/rest/v1/relationship_member_preferences?space_id=eq.${encodeURIComponent(spaceId)}&user_id=eq.${encodeURIComponent(userId)}`, {
+        method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ accent_color: color, updated_at: new Date().toISOString() })
+      });
+    } else {
+      await this.supabaseRequest('/rest/v1/relationship_member_preferences', {
+        method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ space_id: spaceId, user_id: userId, accent_color: color })
+      });
+    }
+  }
+
+  async relationshipRpc(name, args) {
+    return this.supabaseRequest(`/rest/v1/rpc/${name}`, { method: 'POST', body: JSON.stringify(args || {}) });
+  }
+
+  async renameRelationshipTopic(situationId, title) {
+    const encryptedTitle = await this.encodeRelationshipTitle(title);
+    await this.relationshipRpc('rename_relationship_topic', { target_situation: situationId, new_title: encryptedTitle });
+  }
+
+  async requestCloseRelationshipTopic(situationId) {
+    await this.relationshipRpc('request_close_relationship_topic', { target_situation: situationId });
+  }
+
+  async cancelCloseRelationshipTopic(situationId) {
+    await this.relationshipRpc('cancel_close_relationship_topic', { target_situation: situationId });
+  }
+
+  async confirmCloseRelationshipTopic(situationId) {
+    await this.relationshipRpc('confirm_close_relationship_topic', { target_situation: situationId });
+  }
+
+  relationshipStatusLabel(situation, entries, messages) {
+    const me = this.relationshipSession?.user?.id;
+    if (situation.status === 'closed') return '🔒 Закрыта';
+    if (situation.status === 'close_requested') {
+      return situation.close_requested_by === me ? 'Закрытие предложено · ждём партнёра' : 'Партнёр предлагает закрыть · нужен твой ответ';
+    }
+    const own = entries.find(e => e.author_id === me);
+    const other = entries.find(e => e.author_id !== me);
+    if (!own) return 'Нужна твоя первоначальная позиция';
+    if (!other) return 'Твоя позиция готова · ждём партнёра';
+    if (!messages.length) return 'Обсуждение открыто';
+    const latest = messages[messages.length - 1];
+    return latest.author_id === me ? 'Ждём ответ партнёра' : '● Новый ответ · твой ход';
+  }
+
+  async getRelationshipSituationSummary(situation) {
+    const me = this.relationshipSession?.user?.id;
+    const entries = await this.getRelationshipEntries(situation.id);
+    const own = entries.find(e => e.author_id === me);
+    const other = entries.find(e => e.author_id !== me);
+    let messages = [];
+    if (own && other) messages = await this.getRelationshipMessages(situation.id).catch(() => []);
+    let priority = 1;
+    let statusText = this.relationshipStatusLabel(situation, entries, messages);
+    if (situation.status === 'closed') priority = 2;
+    else if (!own) priority = 0;
+    else if (situation.status === 'close_requested' && situation.close_requested_by !== me) priority = 0;
+    else if (own && other) {
+      const latestOwnReplyAt = messages.filter(m => m.author_id === me).reduce((max, m) => Math.max(max, +new Date(m.created_at)), 0);
+      const partnerMessageActivity = messages.filter(m => m.author_id !== me).reduce((max, m) => Math.max(max, +new Date(m.updated_at || m.created_at)), 0);
+      const partnerEntryEdited = other.updated_at && Math.abs(new Date(other.updated_at) - new Date(other.created_at)) > 3000;
+      const partnerEntryActivity = partnerEntryEdited ? +new Date(other.updated_at) : 0;
+      if (Math.max(partnerMessageActivity, partnerEntryActivity) > latestOwnReplyAt) {
+        priority = 0;
+        statusText = '● Новый ответ или изменение · твой ход';
+      }
+    }
+    const activityCandidates = [situation.updated_at, situation.created_at, ...entries.map(e => e.updated_at || e.created_at), ...messages.map(m => m.updated_at || m.created_at)].filter(Boolean);
+    const activityAt = Math.max(...activityCandidates.map(v => +new Date(v)), 0);
+    return { situation, entries, messages, priority, activityAt, statusText };
+  }
+
+  async archiveCompletedRelationshipSituation() {
+    // Начиная с 2.1.0 серверная тема является источником истины.
+    // Автоматически создавать локальную незашифрованную копию обсуждения больше не нужно.
+    return;
   }
 
   manageSection(section) { new SectionActionsModal(this.app, this, section).open(); }

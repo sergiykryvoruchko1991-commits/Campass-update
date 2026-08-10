@@ -1,11 +1,14 @@
 {
-  "version": "2.0.2",
-  "minInstalledVersion": "2.0.0",
+  "version": "2.1.0",
+  "minInstalledVersion": "2.0.2",
   "releaseNotes": [
-    "Собрано строго на базе рабочего Compass 2.0.0.",
-    "Сохранён тестовый журнал «🧪 Тест».",
-    "В окне ситуации добавлена кнопка «Обновить записи», если запись партнёра временно не пришла.",
-    "Пользовательские заметки, вложения и данные «Отношений» не изменяются. Supabase не меняется."
+    "«Отношения»: именованные параллельные темы и сортировка тем, где ждут твоего ответа.",
+    "После двух первоначальных позиций можно продолжать обсуждение сообщениями.",
+    "Добавлены 4 пользовательских цвета, подсветка нового ответа/изменения до следующего ответа.",
+    "Свои позиции и сообщения можно редактировать; предыдущие версии сохраняются в Supabase.",
+    "Закрытие темы происходит только после предложения одного участника и подтверждения второго.",
+    "Названия тем также шифруются. Email-архитектура подготовлена, отправка писем пока выключена.",
+    "Пользовательские Markdown-файлы, вложения и локальные данные не входят в пакет обновления."
   ],
   "touchesUserData": false,
   "requiresSupabaseMigration": false,
@@ -13,17 +16,17 @@
     {
       "path": "main.js",
       "url": "https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/main.js",
-      "sha256": "8da85170bae7ace184c0bac75fdd2adf7d4a75390fe6473496358de920210f03"
+      "sha256": "5158a4095daabc6936b900eddd7c77feef9f0ed8dc41fb0c5084999bb88de67f"
     },
     {
       "path": "styles.css",
       "url": "https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/styles.css",
-      "sha256": "842ac6d0909fd1d134327c4d3e9bcb03b52642b37e8657ed2df0f74d22469cef"
+      "sha256": "2dd5acf3c4ac14e09a99cc0ad1f521f0cb2782c390681053b4fc15b58e32a828"
     },
     {
       "path": "manifest.json",
       "url": "https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/manifest.json",
-      "sha256": "4ec1a27d1fbc2241e62480f94d9e66dafda328fa65c2d43e11613b75859acccf"
+      "sha256": "61212374dfd1dfc9510e8b1b46037051e6d3373d6ceebbc563aab3f8f17001cc"
     }
   ]
 }
