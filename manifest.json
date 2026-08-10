@@ -1,0 +1,9 @@
+{
+  "id": "compass-add",
+  "name": "Compass",
+  "version": "2.0.1",
+  "minAppVersion": "1.5.0",
+  "description": "Compass 2.0.1: первый тест безопасного обновления через GitHub с тестовым журналом.",
+  "author": "OpenAI",
+  "isDesktopOnly": false
+}

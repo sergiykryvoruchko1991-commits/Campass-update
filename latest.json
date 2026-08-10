@@ -1,0 +1,29 @@
+{
+  "version": "2.0.1",
+  "minInstalledVersion": "2.0.0",
+  "releaseNotes": [
+    "Первый тест встроенного механизма безопасных обновлений.",
+    "Добавлен тестовый журнал «🧪 Тест» в боковое меню.",
+    "Блок «🧪 Тест» доступен в списке «Добавить блок» и добавляется в дневную заметку.",
+    "Пользовательские заметки, вложения и данные «Отношений» не изменяются."
+  ],
+  "touchesUserData": false,
+  "requiresSupabaseMigration": false,
+  "files": [
+    {
+      "path": "main.js",
+      "url": "https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/main.js",
+      "sha256": "89d42ab650e1bd5d12c3d6e2e70e5a4375450d0f7f546fd825479b85f4456006"
+    },
+    {
+      "path": "styles.css",
+      "url": "https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/styles.css",
+      "sha256": "842ac6d0909fd1d134327c4d3e9bcb03b52642b37e8657ed2df0f74d22469cef"
+    },
+    {
+      "path": "manifest.json",
+      "url": "https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/manifest.json",
+      "sha256": "bc61a54b1d2d7d52e6555a2441985a08dc17f6307df4df810b53d10e46a15a66"
+    }
+  ]
+}
