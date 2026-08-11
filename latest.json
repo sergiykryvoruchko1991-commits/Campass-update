@@ -1,18 +1,18 @@
 {
-  "version": "2.2.8",
-  "minInstalledVersion": "2.2.7",
+  "version": "2.2.9",
+  "minInstalledVersion": "2.2.8",
   "touchesUserData": false,
   "requiresSupabaseMigration": false,
   "releaseNotes": [
-    "Компактные карточки тем в разделе «Отношения»: текст и серый фон теперь подстраиваются под содержимое.",
-    "В «Для хендовера» записи из дней отображаются простым списком без серых прямоугольных карточек.",
-    "Чекбокс, текст и переход к исходному дню сохранены."
+    "Убраны пояснения над полями входа в разделе «Отношения».",
+    "Убраны дополнительные описания у полей «Пароль пользователя» и «Ключ шифрования».",
+    "Окно входа стало компактнее, чтобы поля ввода лучше оставались видимыми над мобильной клавиатурой."
   ],
   "files": [
     {
       "path": "main.js",
       "url": "https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/main.js",
-      "sha256": "d2ee879442200306de494903f9c9536b4b879f5cadf5e9d6ea1bcaf6640769de"
+      "sha256": "ddf0d34073d706835e0205e88fba600ac3d3c0579b117688bf825d2d9e9b04aa"
     },
     {
       "path": "styles.css",
@@ -22,7 +22,7 @@
     {
       "path": "manifest.json",
       "url": "https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/manifest.json",
-      "sha256": "4327bbef765364c9e0a33a3c2f9eacda7fcfdbca291ad01cf0628547721ca2ab"
+      "sha256": "db7a671ec1ff9ae5d6d0fdb87c5b25bb6afcb1580541dbcd2c31766f07790456"
     }
   ]
 }

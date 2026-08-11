@@ -697,14 +697,8 @@ class RelationshipSessionModal extends Modal {
     this.cleanupKeyboardAvoidance = attachMobileKeyboardAvoidance(contentEl);
     contentEl.addClass('compass-relationship-login');
     contentEl.createEl('h2', { text: '❤️ Общее пространство' });
-    contentEl.createEl('p', {
-      text: 'Пароль Supabase и ключ шифрования используются только в текущем сеансе и не сохраняются в файлах Vault.',
-      cls: 'setting-item-description'
-    });
-
     new Setting(contentEl)
       .setName('Пароль пользователя')
-      .setDesc(this.plugin.relationshipSettings.email || 'Сначала укажи email в настройках Compass.')
       .addText(text => {
         text.inputEl.type = 'password';
         text.setPlaceholder('Пароль Supabase Auth');
@@ -713,7 +707,6 @@ class RelationshipSessionModal extends Modal {
 
     new Setting(contentEl)
       .setName('Ключ шифрования')
-      .setDesc('Тот отдельный секрет, который сохранён у тебя в приложении «Пароли». У обоих участников он должен быть одинаковым.')
       .addText(text => {
         text.inputEl.type = 'password';
         text.setPlaceholder('Encryption key');
