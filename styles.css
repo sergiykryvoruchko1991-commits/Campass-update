@@ -615,108 +615,188 @@
   }
 }
 
-/* Compass 2.2: flexible knowledge-base workflows */
-.compass-full-button {
-  width: 100%;
-  margin-top: 8px;
-}
-
-.compass-library-tools {
+/* Compass 2.2.0: knowledge-base management */
+.compass-library-create-bar {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
-  margin: 0 0 10px;
+  margin: 10px 0 14px;
 }
 
-.compass-library-tools button {
-  flex: 1 1 180px;
+.compass-library-entry,
+.compass-nav-button {
+  -webkit-touch-callout: none;
+  user-select: none;
 }
 
-.compass-library-daily-title {
-  margin: 18px 0 8px;
+.compass-library-target-nav {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 0 12px;
 }
 
-.compass-library-daily-list {
+.compass-library-target-nav span {
+  font-weight: 600;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.compass-library-target-choose {
+  width: 100%;
+  margin-bottom: 12px;
+}
+
+.compass-library-linked-title {
+  margin: 20px 0 8px;
+}
+
+.compass-library-linked-list {
   display: flex;
   flex-direction: column;
   gap: 7px;
 }
 
-.compass-library-daily-entry {
+.compass-library-linked-row {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  gap: 8px;
-  padding: 8px 9px;
+  align-items: start;
+  gap: 9px;
   border: 1px solid var(--background-modifier-border);
   border-radius: 10px;
+  padding: 8px 10px;
   background: var(--background-secondary);
 }
 
-.compass-library-daily-entry:not(:has(input)) {
+.compass-library-linked-row:not(:has(input)) {
   grid-template-columns: minmax(0, 1fr);
 }
 
-.compass-library-daily-entry.is-complete .compass-library-daily-text {
+.compass-library-linked-row input[type='checkbox'] {
+  margin-top: 8px;
+}
+
+.compass-library-linked-row.is-checked .compass-library-linked-text {
   text-decoration: line-through;
   color: var(--text-muted);
 }
 
-.compass-library-daily-open {
+.compass-library-linked-open {
   width: 100%;
   min-width: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
-  gap: 8px;
-  align-items: center;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 5px 8px;
   text-align: left;
-  border: 0;
   background: transparent;
+  border: 0;
   box-shadow: none;
-  padding: 3px 4px;
+  padding: 3px;
 }
 
-.compass-library-daily-text {
-  min-width: 0;
-  white-space: normal;
-  line-height: 1.35;
+.compass-library-linked-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.4;
 }
 
-.compass-library-daily-date,
-.compass-library-daily-jump {
+.compass-library-linked-open small {
+  grid-column: 1;
   color: var(--text-muted);
-  font-size: 0.78rem;
-  white-space: nowrap;
 }
 
-.compass-library-picker .compass-library-entry {
-  margin-bottom: 6px;
+.compass-library-linked-arrow {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+  color: var(--text-muted);
 }
 
-.compass-library-settings-modal,
-.compass-principles-manager,
-.compass-section-modal {
-  max-height: min(88dvh, calc(100dvh - 20px));
+.compass-principle-manager-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.compass-principle-manager-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.4;
+}
+
+.compass-library-item-actions .compass-secondary-action,
+.compass-library-item-actions .compass-danger-action {
+  width: 100%;
+  margin-top: 8px;
+}
+
+.compass-section-modal,
+.compass-library-target-modal,
+.compass-library-item-actions {
+  padding-bottom: calc(18px + var(--compass-keyboard-offset, 0px));
+  max-height: min(88dvh, calc(100dvh - 24px));
   overflow-y: auto;
-  padding-bottom: calc(20px + var(--compass-keyboard-offset, 0px));
   scroll-padding-bottom: calc(120px + var(--compass-keyboard-offset, 0px));
 }
 
 @media (max-width: 500px) {
-  .compass-library-tools {
-    display: grid;
+  .compass-library-create-bar > button {
+    flex: 1 1 calc(50% - 8px);
+  }
+
+  .compass-principle-manager-row {
     grid-template-columns: 1fr;
   }
 
-  .compass-library-daily-open {
-    grid-template-columns: minmax(0, 1fr) auto;
-  }
-
-  .compass-library-daily-date {
-    grid-column: 1 / -1;
-  }
-
-  .compass-section-modal {
+  .compass-section-modal,
+  .compass-library-target-modal,
+  .compass-library-item-actions {
     max-height: calc(100dvh - 4px);
+  }
+}
+
+/* Compass 2.2.1: stronger iOS keyboard protection */
+.compass-keyboard-safe-container {
+  overflow: hidden !important;
+  justify-content: flex-start !important;
+}
+
+.compass-keyboard-safe-modal {
+  margin: 0 auto !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+.compass-keyboard-safe-modal .modal-content,
+.compass-keyboard-safe-modal .compass-section-modal,
+.compass-keyboard-safe-modal .compass-relationship-login,
+.compass-keyboard-safe-modal .compass-situation-editor,
+.compass-keyboard-safe-modal .compass-relationship-situation {
+  max-height: calc(var(--compass-vv-height, 100dvh) - 28px) !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  scroll-padding-top: 24px;
+  scroll-padding-bottom: 120px;
+}
+
+.compass-keyboard-safe-modal input:focus,
+.compass-keyboard-safe-modal textarea:focus,
+.compass-keyboard-safe-modal [contenteditable='true']:focus {
+  scroll-margin-top: 72px;
+  scroll-margin-bottom: 160px;
+}
+
+@media (max-width: 500px) {
+  .compass-keyboard-safe-modal {
+    width: calc(100vw - 12px) !important;
+    max-width: calc(100vw - 12px) !important;
+  }
+  .compass-keyboard-safe-modal .modal-content {
+    padding-bottom: 24px !important;
   }
 }
