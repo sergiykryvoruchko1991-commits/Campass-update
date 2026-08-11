@@ -1,7 +1,7 @@
 const { Plugin, Modal, Notice, ItemView, MarkdownView, moment, setIcon, Setting, PluginSettingTab, requestUrl } = require('obsidian');
 
 const VIEW_TYPE = 'compass-sidebar-view';
-const COMPASS_PLUGIN_VERSION = '2.2.3';
+const COMPASS_PLUGIN_VERSION = '2.2.4';
 const COMPASS_DATA_SCHEMA_VERSION = 3;
 
 const COMPASS_UPDATE_MANIFEST_URL = 'https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/latest.json';
@@ -94,7 +94,9 @@ class AddSectionModal extends Modal {
 
   onOpen() {
     const { contentEl } = this;
-    contentEl.addClass('compass-section-modal');
+    contentEl.addClass('compass-section-modal', 'compass-add-section-modal');
+    const mobileClose = contentEl.createEl('button', { text: '✕', cls: 'compass-mobile-modal-close', attr: { 'aria-label': 'Закрыть' } });
+    mobileClose.onclick = (event) => { event.preventDefault(); event.stopPropagation(); blurActiveEditable(); this.close(); };
     contentEl.createEl('h2', { text: 'Новый раздел' });
     this.descriptionEl = contentEl.createEl('p', { cls: 'setting-item-description' });
     this.updateDescription();
@@ -503,17 +505,23 @@ function attachMobileKeyboardAvoidance(rootEl) {
   const keepVisible = (element) => {
     if (!(element instanceof Element) || !rootEl.contains(element)) return;
     if (!element.matches('input, textarea, [contenteditable="true"]')) return;
+    const scrollHost = rootEl.closest?.('.modal-content') || rootEl;
     clearFocusTimers();
-    [80, 220, 480].forEach(delay => {
+    [40, 140, 300, 520, 800].forEach(delay => {
       focusTimers.push(window.setTimeout(() => {
         try {
-          element.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'auto' });
           const vv = window.visualViewport;
-          const visibleTop = (vv ? vv.offsetTop : 0) + 18;
-          const visibleBottom = (vv ? vv.offsetTop + vv.height : window.innerHeight) - 28;
+          const visibleTop = (vv ? vv.offsetTop : 0) + 76;
+          const visibleBottom = (vv ? vv.offsetTop + vv.height : window.innerHeight) - 36;
           const rect = element.getBoundingClientRect();
-          if (rect.bottom > visibleBottom) rootEl.scrollTop += rect.bottom - visibleBottom + 32;
-          else if (rect.top < visibleTop) rootEl.scrollTop -= visibleTop - rect.top + 20;
+          if (rect.bottom > visibleBottom) scrollHost.scrollTop += rect.bottom - visibleBottom + 44;
+          if (rect.top < visibleTop) scrollHost.scrollTop -= visibleTop - rect.top + 24;
+          element.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'auto' });
+          if (rootEl.classList.contains('compass-add-section-modal')) {
+            const item = element.closest('.setting-item') || element;
+            item.scrollIntoView({ block: 'start', inline: 'nearest', behavior: 'auto' });
+            scrollHost.scrollTop = Math.max(0, scrollHost.scrollTop - 18);
+          }
         } catch (_) {}
       }, delay));
     });
@@ -1648,10 +1656,28 @@ class CompassPrincipleManagerModal extends Modal {
   constructor(app, plugin) { super(app); this.plugin = plugin; }
   async onOpen() { await this.render(); }
   async render() {
-    const { contentEl } = this; contentEl.empty(); contentEl.createEl('h2', { text: '🧭 Принципы над календарём' });
-    contentEl.createEl('p', { text: 'Скрытие здесь не удаляет исходную запись. Она остаётся в дневнике и журнале.', cls: 'setting-item-description' });
-    const all = await this.plugin.getPrinciples({ includeHidden: true });
-    for (const principle of all) { const row = contentEl.createDiv({ cls: 'compass-principle-manager-row' }); row.createDiv({ text: principle, cls: 'compass-principle-manager-text' }); const hidden = this.plugin.hiddenPrinciples.includes(principle); const b = row.createEl('button', { text: hidden ? 'Вернуть в показ' : 'Убрать из показа' }); b.onclick = async () => { await this.plugin.setPrincipleVisible(principle, hidden); await this.render(); this.plugin.refreshSidebar(); }; }
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.addClass('compass-principle-manager-modal');
+    contentEl.createEl('h2', { text: '🧭 Принципы над календарём' });
+    contentEl.createEl('p', { text: 'Крестик убирает запись только из прокрутки над календарём. Исходная запись остаётся на своём месте.', cls: 'setting-item-description' });
+    const visible = await this.plugin.getPrinciples();
+    if (!visible.length) {
+      contentEl.createEl('p', { text: 'В прокрутке сейчас нет записей.', cls: 'setting-item-description' });
+      return;
+    }
+    for (const principle of visible) {
+      const row = contentEl.createDiv({ cls: 'compass-principle-manager-row' });
+      row.createDiv({ text: principle, cls: 'compass-principle-manager-text' });
+      const remove = row.createEl('button', { text: '✕', cls: 'compass-principle-remove', attr: { 'aria-label': 'Убрать из показа' } });
+      remove.onclick = async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        await this.plugin.setPrincipleVisible(principle, false);
+        await this.render();
+        this.plugin.refreshSidebar();
+      };
+    }
   }
 }
 

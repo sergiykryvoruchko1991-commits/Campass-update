@@ -1,29 +1,28 @@
 {
-  "version": "2.2.3",
-  "minInstalledVersion": "2.2.2",
+  "version": "2.2.4",
+  "minInstalledVersion": "2.2.3",
   "touchesUserData": false,
   "requiresSupabaseMigration": false,
   "releaseNotes": [
-    "Поле «Название раздела» принудительно удерживается над клавиатурой iPhone и остаётся видимым во время ввода.",
-    "Улучшена защита от перекрытия клавиатурой в других формах Compass.",
-    "Стандартное приветствие ежедневной заметки теперь оформляется заголовком второго уровня.",
-    "Точное стандартное приветствие безопасно исправляется и в уже созданных дневных заметках; пользовательский текст не изменяется."
+    "Список заметок над календарём теперь показывает текст слева и отдельный крестик справа; крестик убирает запись только из ротации, не удаляя исходную заметку.",
+    "Исправлено окно добавления раздела на iPhone: активное поле названия принудительно удерживается в видимой области над клавиатурой.",
+    "Добавлена крупная внутренняя кнопка закрытия окна ниже safe-area, чтобы закрытие стабильно срабатывало с первого нажатия."
   ],
   "files": [
     {
       "path": "main.js",
       "url": "https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/main.js",
-      "sha256": "78faf80004c878c871c2d29e90ce99ede126c49917ebf5d65dff56c17cd4667d"
+      "sha256": "d5e16aeadc940360113533255e8f092f8bbb75257eedf9e9289e303c9b2bcb16"
     },
     {
       "path": "styles.css",
       "url": "https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/styles.css",
-      "sha256": "e96e00f004c9052d30ea1258ac11998e2c8da4734a402b114c48e01d290c71d0"
+      "sha256": "e7a7f27da2fded4c8c4362210633d039460dbb2f9f792cf5cfe3c0063b1a8eb9"
     },
     {
       "path": "manifest.json",
       "url": "https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/manifest.json",
-      "sha256": "c9689397f249ffec1927632b8be3136ddb4405562f453430a866d77fccbe5926"
+      "sha256": "52eeb3bf762b44441c61e7c38facccb87c174bde7a9c953380ae75dc2708ea1a"
     }
   ]
 }

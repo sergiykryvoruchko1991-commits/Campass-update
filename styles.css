@@ -863,3 +863,82 @@
     scroll-margin-bottom: calc(var(--compass-keyboard-offset, 0px) + 72px) !important;
   }
 }
+
+/* Compass 2.2.4: stabilization pass for principle list and iPhone add-section modal. */
+.compass-principle-manager-row {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) 44px !important;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 0;
+}
+
+.compass-principle-remove {
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  font-size: 1.05rem;
+  line-height: 1;
+}
+
+.compass-add-section-modal {
+  position: relative;
+  padding-top: 10px;
+  padding-bottom: calc(32px + var(--compass-keyboard-offset, 0px)) !important;
+  scroll-padding-top: 76px !important;
+  scroll-padding-bottom: calc(140px + var(--compass-keyboard-offset, 0px)) !important;
+}
+
+.compass-mobile-modal-close {
+  position: sticky;
+  top: max(8px, env(safe-area-inset-top, 0px));
+  z-index: 30;
+  float: right;
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  margin: 0 0 6px 10px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  font-size: 1rem;
+  line-height: 1;
+  touch-action: manipulation;
+}
+
+.compass-keyboard-safe-modal .compass-add-section-modal .setting-item {
+  scroll-margin-top: 88px !important;
+  scroll-margin-bottom: calc(var(--compass-keyboard-offset, 0px) + 120px) !important;
+}
+
+@media (max-width: 500px) {
+  .compass-principle-manager-row {
+    grid-template-columns: minmax(0, 1fr) 44px !important;
+  }
+
+  .compass-keyboard-safe-container {
+    padding-top: calc(env(safe-area-inset-top, 0px) + 10px) !important;
+  }
+
+  .compass-keyboard-safe-modal {
+    max-height: calc(var(--compass-vv-height, 100dvh) - env(safe-area-inset-top, 0px) - 12px) !important;
+  }
+
+  .compass-keyboard-safe-modal .compass-add-section-modal {
+    max-height: calc(var(--compass-vv-height, 100dvh) - env(safe-area-inset-top, 0px) - 22px) !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .compass-keyboard-safe-modal .compass-add-section-modal input:focus {
+    scroll-margin-top: 96px !important;
+    scroll-margin-bottom: calc(var(--compass-keyboard-offset, 0px) + 140px) !important;
+  }
+}
