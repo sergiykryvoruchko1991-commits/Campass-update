@@ -800,3 +800,50 @@
     padding-bottom: 24px !important;
   }
 }
+
+/* Compass 2.2.2: linked daily-entry cards grow naturally with their text. */
+.compass-library-linked-row {
+  height: auto;
+  min-height: 0;
+  overflow: visible;
+  align-items: start;
+}
+
+.compass-library-linked-open {
+  height: auto;
+  min-height: 0;
+  max-height: none;
+  overflow: visible;
+  align-items: start;
+  white-space: normal;
+}
+
+.compass-library-linked-text {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  height: auto;
+  max-height: none;
+  overflow: visible;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  line-height: 1.45;
+  padding: 1px 0 3px;
+}
+
+.compass-library-linked-arrow {
+  align-self: start;
+  line-height: 1.45;
+}
+
+@media (max-width: 500px) {
+  .compass-library-linked-row {
+    padding: 10px 11px;
+  }
+
+  .compass-library-linked-open {
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding: 1px 0;
+  }
+}

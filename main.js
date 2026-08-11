@@ -1,7 +1,7 @@
 const { Plugin, Modal, Notice, ItemView, MarkdownView, moment, setIcon, Setting, PluginSettingTab, requestUrl } = require('obsidian');
 
 const VIEW_TYPE = 'compass-sidebar-view';
-const COMPASS_PLUGIN_VERSION = '2.2.1';
+const COMPASS_PLUGIN_VERSION = '2.2.2';
 const COMPASS_DATA_SCHEMA_VERSION = 3;
 
 const COMPASS_UPDATE_MANIFEST_URL = 'https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/latest.json';
@@ -1831,7 +1831,7 @@ module.exports = class CompassPlugin extends Plugin {
     const dailyFiles = this.app.vault.getMarkdownFiles().filter(file => file.path.startsWith('01 Дни/'));
     for (const file of dailyFiles) {
       try {
-        const content = await this.app.vault.cachedRead(file);
+        const content = await this.app.vault.read(file);
         const lines = content.split('\n');
         let collecting = false;
         let buffer = [];
@@ -2752,4 +2752,163 @@ CompassPlugin221.prototype.cleanupLegacyLibraryMarkers221 = async function() {
   await this.saveData(current);
   if (changed) new Notice(`Compass убрал технические строки из заметок: ${changed}`);
   return changed;
+};
+
+
+/* Compass 2.2.2: adaptive handover cards + source-of-truth sync for daily-linked library entries. */
+const CompassPlugin222 = module.exports;
+const compass222BaseOnload = CompassPlugin222.prototype.onload;
+CompassPlugin222.prototype.onload = async function() {
+  await compass222BaseOnload.call(this);
+  this._libraryDailySyncTimers222 = new Map();
+  this.registerEvent(this.app.vault.on('modify', file => {
+    if (!file || file.extension !== 'md' || !String(file.path || '').startsWith('01 Дни/')) return;
+    const key = file.path;
+    const previous = this._libraryDailySyncTimers222.get(key);
+    if (previous) window.clearTimeout(previous);
+    const timer = window.setTimeout(() => {
+      this._libraryDailySyncTimers222.delete(key);
+      this.reconcileLibraryDailyLinksForFile222(file).catch(e => console.warn('Compass 2.2.2 daily link sync', e));
+    }, 700);
+    this._libraryDailySyncTimers222.set(key, timer);
+  }));
+  window.setTimeout(() => this.reconcileAllLibraryDailyLinks222().catch(e => console.warn('Compass 2.2.2 initial daily link sync', e)), 1600);
+};
+
+CompassPlugin222.prototype._normalizeLinkedText222 = function(value) {
+  return String(value || '')
+    .replace(/\r\n/g, '\n')
+    .split('\n')
+    .map(line => line.trim())
+    .filter(Boolean)
+    .join('\n')
+    .replace(/[ \t]+/g, ' ')
+    .trim();
+};
+
+CompassPlugin222.prototype._textSimilarity222 = function(a, b) {
+  const left = new Set(this._normalizeLinkedText222(a).toLocaleLowerCase('ru').split(/[^\p{L}\p{N}]+/u).filter(Boolean));
+  const right = new Set(this._normalizeLinkedText222(b).toLocaleLowerCase('ru').split(/[^\p{L}\p{N}]+/u).filter(Boolean));
+  if (!left.size || !right.size) return 0;
+  let same = 0;
+  for (const token of left) if (right.has(token)) same += 1;
+  return same / Math.max(left.size, right.size);
+};
+
+CompassPlugin222.prototype._extractDailyLibrarySections222 = function(content) {
+  const lines = String(content || '').replace(/\r\n/g, '\n').split('\n');
+  const sections = [];
+  for (let i = 0; i < lines.length; i += 1) {
+    const match = lines[i].match(/^##\s+(.+?)\s*$/);
+    if (!match) continue;
+    let end = i + 1;
+    while (end < lines.length && !/^##\s+/.test(lines[end])) end += 1;
+    const body = lines.slice(i + 1, end).join('\n').trim();
+    sections.push({ heading: match[1].trim(), body, startLine: i });
+    i = end - 1;
+  }
+  return sections;
+};
+
+CompassPlugin222.prototype.reconcileLibraryDailyLinksForFile222 = async function(file) {
+  if (!file || file.extension !== 'md' || !String(file.path || '').startsWith('01 Дни/')) return 0;
+  const allLinks = this.libraryDailyLinks || [];
+  const links = allLinks.filter(link => link.dailyPath === file.path);
+  if (!links.length) return 0;
+
+  const content = await this.app.vault.read(file);
+  const sections = this._extractDailyLibrarySections222(content);
+  const byHeading = new Map();
+  for (const section of sections) {
+    if (!byHeading.has(section.heading)) byHeading.set(section.heading, []);
+    byHeading.get(section.heading).push(section);
+  }
+
+  const keepIds = new Set();
+  let changed = false;
+  const groups = new Map();
+  for (const link of links) {
+    const heading = String(link.heading || `📚 ${(link.targetPath || '').split('/').pop() || ''}`).trim();
+    if (!groups.has(heading)) groups.set(heading, []);
+    groups.get(heading).push(link);
+  }
+
+  for (const [heading, groupLinks] of groups.entries()) {
+    const candidates = [...(byHeading.get(heading) || [])].map((section, index) => ({ ...section, index, used: false }));
+    const orderedLinks = [...groupLinks].sort((a, b) => +new Date(a.createdAt || 0) - +new Date(b.createdAt || 0));
+
+    // First pass: exact content match. This preserves checklist state even when other items are deleted.
+    for (const link of orderedLinks) {
+      const oldText = this._normalizeLinkedText222(link.text);
+      if (!oldText) continue;
+      const exact = candidates.find(c => !c.used && this._normalizeLinkedText222(c.body) === oldText);
+      if (exact) {
+        exact.used = true;
+        keepIds.add(link.id);
+      }
+    }
+
+    // Second pass: strong similarity means the user edited the source text rather than deleting it.
+    for (const link of orderedLinks) {
+      if (keepIds.has(link.id)) continue;
+      let best = null;
+      let bestScore = 0;
+      for (const candidate of candidates) {
+        if (candidate.used || !candidate.body.trim()) continue;
+        const score = this._textSimilarity222(link.text, candidate.body);
+        if (score > bestScore) { bestScore = score; best = candidate; }
+      }
+      if (best && bestScore >= 0.55) {
+        best.used = true;
+        keepIds.add(link.id);
+        const nextText = best.body.trim();
+        if (this._normalizeLinkedText222(link.text) !== this._normalizeLinkedText222(nextText)) {
+          link.text = nextText;
+          link.updatedAt = new Date().toISOString();
+          changed = true;
+        }
+      }
+    }
+
+    // Final conservative pass: pair the remaining source sections and links in order only when counts match.
+    const remainingLinks = orderedLinks.filter(link => !keepIds.has(link.id));
+    const remainingSections = candidates.filter(c => !c.used && c.body.trim());
+    if (remainingLinks.length && remainingLinks.length === remainingSections.length) {
+      for (let i = 0; i < remainingLinks.length; i += 1) {
+        const link = remainingLinks[i];
+        const section = remainingSections[i];
+        section.used = true;
+        keepIds.add(link.id);
+        const nextText = section.body.trim();
+        if (this._normalizeLinkedText222(link.text) !== this._normalizeLinkedText222(nextText)) {
+          link.text = nextText;
+          link.updatedAt = new Date().toISOString();
+          changed = true;
+        }
+      }
+    }
+  }
+
+  const before = allLinks.length;
+  this.libraryDailyLinks = allLinks.filter(link => link.dailyPath !== file.path || keepIds.has(link.id));
+  const removed = before - this.libraryDailyLinks.length;
+  if (removed || changed) await this.saveCompassData();
+  return removed;
+};
+
+CompassPlugin222.prototype.reconcileAllLibraryDailyLinks222 = async function() {
+  const paths = [...new Set((this.libraryDailyLinks || []).map(link => link.dailyPath).filter(Boolean))];
+  let removed = 0;
+  for (const path of paths) {
+    const file = this.app.vault.getAbstractFileByPath(path);
+    if (!file || file.extension !== 'md') {
+      const before = (this.libraryDailyLinks || []).length;
+      this.libraryDailyLinks = (this.libraryDailyLinks || []).filter(link => link.dailyPath !== path);
+      removed += before - this.libraryDailyLinks.length;
+      continue;
+    }
+    removed += await this.reconcileLibraryDailyLinksForFile222(file);
+  }
+  if (removed) await this.saveCompassData();
+  return removed;
 };

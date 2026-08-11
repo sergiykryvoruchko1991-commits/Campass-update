@@ -1,30 +1,29 @@
 {
-  "version": "2.2.1",
-  "minInstalledVersion": "2.2.0",
+  "version": "2.2.2",
+  "minInstalledVersion": "2.2.1",
   "touchesUserData": false,
   "requiresSupabaseMigration": false,
   "releaseNotes": [
-    "Технические строки compass-library и закодированные пути больше не записываются в ежедневные заметки.",
-    "Старые технические строки Compass автоматически очищаются из Markdown без удаления пользовательского текста.",
-    "Переход из базы знаний к исходному дню теперь работает без видимого служебного маркера.",
-    "Усилено поведение модальных окон на iPhone: активное поле удерживается выше системной клавиатуры.",
-    "Исправление клавиатуры применяется к созданию разделов, папок, заметок и входу в «Отношения»."
+    "Карточки записей из ежедневника в базе знаний теперь автоматически растут по высоте и не перекрывают длинный текст.",
+    "Если исходный связанный блок удалён из ежедневной заметки, его карточка автоматически удаляется из базы знаний.",
+    "Если текст связанного блока отредактирован в ежедневнике, Compass старается обновить текст карточки, сохраняя чекбокс.",
+    "Дневная заметка остаётся источником истины: удаление карточки не затрагивает другие записи и пользовательский текст."
   ],
   "files": [
     {
       "path": "main.js",
       "url": "https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/main.js",
-      "sha256": "a7d12cebb073fb78587e484c3179ac112a686292065cb74db33edfe6acd9165b"
+      "sha256": "165492f4968fc3b70d1f979b1e783b1ec81c8fcfb7960c0f545f1020e81dcfc6"
     },
     {
       "path": "styles.css",
       "url": "https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/styles.css",
-      "sha256": "1307562e43cd8d7991d4646e96b59ec88c88ff2544237b69ef4acae0827b0b1f"
+      "sha256": "66c68c948c0a2c217e469670c542b28f4e3997f128bc1cd06edd780822d54d9f"
     },
     {
       "path": "manifest.json",
       "url": "https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/manifest.json",
-      "sha256": "652c410b2a65f97cb9e0ee9f7245977c839edc8c5265fd2d881d2fe80b7c2a1e"
+      "sha256": "22d0796c1079078a839b2815817192e2884599b104aa5e80356d0d2ed2216961"
     }
   ]
 }
