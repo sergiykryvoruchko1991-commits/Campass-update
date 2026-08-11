@@ -1,7 +1,7 @@
 const { Plugin, Modal, Notice, ItemView, MarkdownView, moment, setIcon, Setting, PluginSettingTab, requestUrl } = require('obsidian');
 
 const VIEW_TYPE = 'compass-sidebar-view';
-const COMPASS_PLUGIN_VERSION = '2.2.6';
+const COMPASS_PLUGIN_VERSION = '2.2.7';
 const COMPASS_DATA_SCHEMA_VERSION = 3;
 
 const COMPASS_UPDATE_MANIFEST_URL = 'https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/latest.json';
@@ -80,16 +80,6 @@ class AddSectionModal extends Modal {
     this.name = '';
     this.emoji = '📌';
     this.sectionType = 'journal';
-    this.descriptionEl = null;
-  }
-
-  updateDescription() {
-    if (!this.descriptionEl) return;
-    this.descriptionEl.setText(
-      this.sectionType === 'journal'
-        ? 'Журнал подключается к дневнику: его можно выбрать при добавлении блока, а раздел будет собирать ссылки на дни.'
-        : 'База знаний — обычная папка с отдельными файлами. Она не связана с ежедневными заметками и заполняется вручную.'
-    );
   }
 
   onOpen() {
@@ -97,55 +87,44 @@ class AddSectionModal extends Modal {
     contentEl.addClass('compass-section-modal', 'compass-add-section-modal');
     contentEl.createEl('h2', { text: 'Новый раздел' });
 
-    // iOS stabilization: keep the most important field at the top of the form.
-    // This avoids relying on Safari/Obsidian keyboard scrolling, which is unreliable
-    // when VisualViewport changes while the keyboard animates.
+    // 1. Название: первое поле, чтобы на iPhone оно оставалось над клавиатурой.
     const nameSetting = new Setting(contentEl)
       .setName('Название раздела')
-      .setDesc('Например: Работа, Пароход, Спорт.')
+      .setDesc('Например: Работа или Пароход')
       .addText(text => {
-        text.setPlaceholder('Пароход');
+        text.setPlaceholder('Название');
         text.inputEl.addClass('compass-section-name-input');
         text.onChange(value => { this.name = value.trim(); });
 
-        const keepAtTop = () => {
-          const input = text.inputEl;
-          const item = input.closest('.setting-item') || input;
-          const scrollHost = contentEl.closest('.modal-content') || contentEl;
-          [0, 100, 260, 520].forEach(delay => window.setTimeout(() => {
-            try {
-              item.scrollIntoView({ block: 'start', inline: 'nearest', behavior: 'auto' });
-              scrollHost.scrollTop = Math.max(0, scrollHost.scrollTop - 18);
-            } catch (_) {}
+        const keepVisible = () => {
+          const item = text.inputEl.closest('.setting-item') || text.inputEl;
+          [80, 220, 450].forEach(delay => window.setTimeout(() => {
+            try { item.scrollIntoView({ block: 'start', inline: 'nearest', behavior: 'auto' }); } catch (_) {}
           }, delay));
         };
-        text.inputEl.addEventListener('focus', keepAtTop);
-        text.inputEl.addEventListener('click', keepAtTop);
+        text.inputEl.addEventListener('focus', keepVisible);
+        text.inputEl.addEventListener('click', keepVisible);
       });
     nameSetting.settingEl.addClass('compass-section-name-setting');
 
-    this.descriptionEl = contentEl.createEl('p', { cls: 'setting-item-description compass-section-description' });
-    this.updateDescription();
-
-    new Setting(contentEl)
-      .setName('Тип раздела')
-      .setDesc('Выбери, как этот раздел должен работать.')
-      .addDropdown(dropdown => dropdown
-        .addOption('journal', '📒 Журнал — связан с дневником')
-        .addOption('library', '📚 База знаний — отдельные файлы')
-        .setValue(this.sectionType)
-        .onChange(value => {
-          this.sectionType = value;
-          this.updateDescription();
-        }));
-
+    // 2. Значок.
     new Setting(contentEl)
       .setName('Значок')
-      .setDesc('Можно оставить 📌 или указать любой emoji.')
+      .setDesc('Любой emoji')
       .addText(text => text
         .setPlaceholder('📌')
         .setValue(this.emoji)
         .onChange(value => { this.emoji = value.trim() || '📌'; }));
+
+    // 3. Тип раздела. Короткие подписи без дополнительного текста.
+    new Setting(contentEl)
+      .setName('Тип раздела')
+      .setDesc('Журнал — для записей · База знаний — для папок и файлов')
+      .addDropdown(dropdown => dropdown
+        .addOption('journal', '📒 Журнал')
+        .addOption('library', '📚 База знаний')
+        .setValue(this.sectionType)
+        .onChange(value => { this.sectionType = value; }));
 
     const actions = contentEl.createDiv({ cls: 'compass-section-actions' });
     const cancel = actions.createEl('button', { text: 'Отмена' });

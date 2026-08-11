@@ -1,18 +1,18 @@
 {
-  "version": "2.2.6",
-  "minInstalledVersion": "2.2.5",
+  "version": "2.2.7",
+  "minInstalledVersion": "2.2.6",
   "touchesUserData": false,
   "requiresSupabaseMigration": false,
   "releaseNotes": [
-    "Поле «Название раздела» перенесено в верх формы, чтобы оно физически не попадало под клавиатуру iPhone.",
-    "При фокусе поле дополнительно фиксируется в верхней видимой части окна; больше не полагаемся только на ненадёжную автопрокрутку iOS.",
-    "Размер поля ввода адаптирован для iOS и исключает автоматический zoom Safari/WebView."
+    "Форма «Новый раздел» стала компактнее.",
+    "Порядок полей: название → значок → тип раздела.",
+    "Убраны длинные пояснения; оставлены короткие подсказки."
   ],
   "files": [
     {
       "path": "main.js",
       "url": "https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/main.js",
-      "sha256": "628e4701a446728c8e3c93861401e3fc99aa66956c5ea2b8ad0be217059fdace"
+      "sha256": "1d7fe4356ba9d2556321ac7856c05aef439421cf4502f8554022630c2b1a678b"
     },
     {
       "path": "styles.css",
@@ -22,7 +22,7 @@
     {
       "path": "manifest.json",
       "url": "https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/manifest.json",
-      "sha256": "9a340422bd4bcd9e37a4ce460dd0fd20f06050ee40866a6e148e9346b229406a"
+      "sha256": "7386d8c6c21692e08e19868b54aa21c69662260fbd013c79911a419319a20f7a"
     }
   ]
 }

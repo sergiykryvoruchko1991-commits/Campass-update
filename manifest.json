@@ -1,9 +1,9 @@
 {
   "id": "compass-add",
   "name": "Compass",
-  "version": "2.2.6",
+  "version": "2.2.7",
   "minAppVersion": "1.5.0",
-  "description": "Compass 2.2.6: надёжный iPhone-фикс поля названия нового раздела.",
+  "description": "Compass 2.2.7: компактная форма создания раздела — название, значок, тип.",
   "author": "OpenAI",
   "isDesktopOnly": false
 }
