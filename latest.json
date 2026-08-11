@@ -1,18 +1,18 @@
 {
-  "version": "2.2.9",
-  "minInstalledVersion": "2.2.8",
+  "version": "2.2.10",
+  "minInstalledVersion": "2.1.0",
   "touchesUserData": false,
   "requiresSupabaseMigration": false,
   "releaseNotes": [
-    "Убраны пояснения над полями входа в разделе «Отношения».",
-    "Убраны дополнительные описания у полей «Пароль пользователя» и «Ключ шифрования».",
-    "Окно входа стало компактнее, чтобы поля ввода лучше оставались видимыми над мобильной клавиатурой."
+    "Разрешено прямое обновление с Compass 2.1.0 до актуальной версии.",
+    "Предыдущие изменения Compass 2.2.x включены в этот полный пакет обновления.",
+    "Пользовательские заметки, папки и данные Vault не входят в пакет обновления."
   ],
   "files": [
     {
       "path": "main.js",
       "url": "https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/main.js",
-      "sha256": "ddf0d34073d706835e0205e88fba600ac3d3c0579b117688bf825d2d9e9b04aa"
+      "sha256": "fe597550b07490aab465e410e0edc304234cbd7b88ee866875cdb4e068826dee"
     },
     {
       "path": "styles.css",
@@ -22,7 +22,7 @@
     {
       "path": "manifest.json",
       "url": "https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/manifest.json",
-      "sha256": "db7a671ec1ff9ae5d6d0fdb87c5b25bb6afcb1580541dbcd2c31766f07790456"
+      "sha256": "b0b59f1f4bef34d3dadc6518b9ff2012fc9784204679599a59080c9a4cf7f7f7"
     }
   ]
 }
