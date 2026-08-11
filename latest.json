@@ -1,28 +1,28 @@
 {
-  "version": "2.2.7",
-  "minInstalledVersion": "2.2.6",
+  "version": "2.2.8",
+  "minInstalledVersion": "2.2.7",
   "touchesUserData": false,
   "requiresSupabaseMigration": false,
   "releaseNotes": [
-    "Форма «Новый раздел» стала компактнее.",
-    "Порядок полей: название → значок → тип раздела.",
-    "Убраны длинные пояснения; оставлены короткие подсказки."
+    "Компактные карточки тем в разделе «Отношения»: текст и серый фон теперь подстраиваются под содержимое.",
+    "В «Для хендовера» записи из дней отображаются простым списком без серых прямоугольных карточек.",
+    "Чекбокс, текст и переход к исходному дню сохранены."
   ],
   "files": [
     {
       "path": "main.js",
       "url": "https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/main.js",
-      "sha256": "1d7fe4356ba9d2556321ac7856c05aef439421cf4502f8554022630c2b1a678b"
+      "sha256": "d2ee879442200306de494903f9c9536b4b879f5cadf5e9d6ea1bcaf6640769de"
     },
     {
       "path": "styles.css",
       "url": "https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/styles.css",
-      "sha256": "af4ce193afac904e30b0008065eff8792c62367ec9442f39f8e56c75c396be01"
+      "sha256": "9bf868964ccb64d29fd74b062fbf94e2fc910b011c3abb06effafd7b9cea3193"
     },
     {
       "path": "manifest.json",
       "url": "https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/manifest.json",
-      "sha256": "7386d8c6c21692e08e19868b54aa21c69662260fbd013c79911a419319a20f7a"
+      "sha256": "4327bbef765364c9e0a33a3c2f9eacda7fcfdbca291ad01cf0628547721ca2ab"
     }
   ]
 }

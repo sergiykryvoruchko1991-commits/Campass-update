@@ -1013,3 +1013,113 @@
     padding-top: 6px;
   }
 }
+
+
+/* Compass 2.2.8: compact Relationships cards + clean handover checklist. */
+.compass-relationships-modal .compass-situations-list {
+  gap: 10px;
+}
+
+.compass-relationships-modal .compass-situation-row {
+  height: auto;
+  min-height: 0;
+  padding: 10px 14px;
+  gap: 4px;
+  border-radius: 14px;
+  line-height: 1.25;
+  overflow: visible;
+}
+
+.compass-relationships-modal .compass-topic-row-top {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 10px;
+  align-items: baseline;
+}
+
+.compass-relationships-modal .compass-topic-row-top strong {
+  min-width: 0;
+  font-size: 1rem;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.compass-relationships-modal .compass-topic-row-top span,
+.compass-relationships-modal .compass-situation-row small {
+  font-size: 0.78rem;
+  line-height: 1.3;
+  color: var(--text-muted);
+}
+
+.compass-relationships-modal .compass-situation-row small {
+  display: block;
+  width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+/* Checklist-style library folders (including “Для хендовера”): plain list, no cards. */
+.compass-library-linked-list.is-checklist {
+  gap: 0;
+}
+
+.compass-library-linked-list.is-checklist .compass-library-linked-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+  padding: 9px 2px;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.compass-library-linked-list.is-checklist .compass-library-linked-row + .compass-library-linked-row {
+  border-top: 1px solid var(--background-modifier-border);
+}
+
+.compass-library-linked-list.is-checklist .compass-library-linked-row input[type='checkbox'] {
+  margin: 3px 0 0;
+}
+
+.compass-library-linked-list.is-checklist .compass-library-linked-open {
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: start;
+}
+
+.compass-library-linked-list.is-checklist .compass-library-linked-text {
+  padding: 0;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.compass-library-linked-list.is-checklist .compass-library-linked-arrow {
+  align-self: start;
+  padding: 0 2px;
+  line-height: 1.4;
+}
+
+@media (max-width: 500px) {
+  .compass-relationships-modal .compass-topic-row-top {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: baseline;
+  }
+
+  .compass-relationships-modal .compass-situation-row {
+    padding: 10px 12px;
+  }
+}
