@@ -1,28 +1,28 @@
 {
-  "version": "2.2.4",
-  "minInstalledVersion": "2.2.3",
+  "version": "2.2.5",
+  "minInstalledVersion": "2.2.4",
   "touchesUserData": false,
   "requiresSupabaseMigration": false,
   "releaseNotes": [
-    "Список заметок над календарём теперь показывает текст слева и отдельный крестик справа; крестик убирает запись только из ротации, не удаляя исходную заметку.",
-    "Исправлено окно добавления раздела на iPhone: активное поле названия принудительно удерживается в видимой области над клавиатурой.",
-    "Добавлена крупная внутренняя кнопка закрытия окна ниже safe-area, чтобы закрытие стабильно срабатывало с первого нажатия."
+    "Убран лишний внутренний крестик слева в окне «Новый раздел»: остаётся только стандартная кнопка закрытия справа.",
+    "Стандартная кнопка закрытия получила увеличенную область нажатия и более безопасное положение на iPhone.",
+    "Поле «Название раздела» больше не получает автофокус при открытии окна; при ручном фокусе форма несколько раз прокручивается так, чтобы строка ввода оставалась видимой над клавиатурой."
   ],
   "files": [
     {
       "path": "main.js",
       "url": "https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/main.js",
-      "sha256": "d5e16aeadc940360113533255e8f092f8bbb75257eedf9e9289e303c9b2bcb16"
+      "sha256": "9d279072eadcce8461c66d6478bca32a4d54a825a44ce8c485040e648cc27337"
     },
     {
       "path": "styles.css",
       "url": "https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/styles.css",
-      "sha256": "e7a7f27da2fded4c8c4362210633d039460dbb2f9f792cf5cfe3c0063b1a8eb9"
+      "sha256": "ff9dda7b97de13c88bcb9af60f7f4f2914065c2aefdd6ef23f5261798642c25c"
     },
     {
       "path": "manifest.json",
       "url": "https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/manifest.json",
-      "sha256": "52eeb3bf762b44441c61e7c38facccb87c174bde7a9c953380ae75dc2708ea1a"
+      "sha256": "f0907a383fce1e61834ccfa935c6bfe28aa8ae64397949238968e43ffb34672b"
     }
   ]
 }

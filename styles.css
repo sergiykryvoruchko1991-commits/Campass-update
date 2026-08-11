@@ -942,3 +942,45 @@
     scroll-margin-bottom: calc(var(--compass-keyboard-offset, 0px) + 140px) !important;
   }
 }
+
+/* Compass 2.2.5: focused stabilization of the add-section modal on iPhone. */
+/* Use Obsidian's single native close button; make its hit target large and keep it clear of the top system area. */
+.compass-keyboard-safe-modal .modal-close-button {
+  top: 14px !important;
+  right: 14px !important;
+  width: 48px !important;
+  min-width: 48px !important;
+  height: 48px !important;
+  min-height: 48px !important;
+  z-index: 200 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  touch-action: manipulation;
+  pointer-events: auto !important;
+}
+
+/* The previous extra in-content close control is no longer created. Hide any stale copy if Obsidian preserved one during hot reload. */
+.compass-add-section-modal .compass-mobile-modal-close {
+  display: none !important;
+}
+
+@media (max-width: 500px) {
+  .compass-keyboard-safe-modal .compass-add-section-modal {
+    box-sizing: border-box;
+    padding-top: 18px !important;
+    padding-bottom: calc(90px + var(--compass-keyboard-offset, 0px)) !important;
+    scroll-padding-top: 76px !important;
+    scroll-padding-bottom: calc(180px + var(--compass-keyboard-offset, 0px)) !important;
+  }
+
+  .compass-add-section-modal .compass-section-name-input {
+    scroll-margin-top: 90px !important;
+    scroll-margin-bottom: calc(190px + var(--compass-keyboard-offset, 0px)) !important;
+  }
+
+  .compass-add-section-modal .setting-item:has(.compass-section-name-input) {
+    scroll-margin-top: 84px !important;
+    scroll-margin-bottom: calc(190px + var(--compass-keyboard-offset, 0px)) !important;
+  }
+}
