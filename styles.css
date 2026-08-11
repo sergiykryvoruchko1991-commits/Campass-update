@@ -847,3 +847,19 @@
     padding: 1px 0;
   }
 }
+
+
+/* Compass 2.2.3: keep the focused form field physically above the iOS keyboard. */
+.compass-keyboard-safe-modal .compass-section-modal.is-keyboard-open,
+.compass-keyboard-safe-modal .compass-relationship-login.is-keyboard-open,
+.compass-keyboard-safe-modal .compass-situation-editor.is-keyboard-open,
+.compass-keyboard-safe-modal .compass-relationship-situation.is-keyboard-open {
+  padding-bottom: calc(var(--compass-keyboard-offset, 0px) + 48px) !important;
+  scroll-padding-bottom: calc(var(--compass-keyboard-offset, 0px) + 96px) !important;
+}
+@media (max-width: 500px) {
+  .compass-keyboard-safe-modal input,
+  .compass-keyboard-safe-modal textarea {
+    scroll-margin-bottom: calc(var(--compass-keyboard-offset, 0px) + 72px) !important;
+  }
+}

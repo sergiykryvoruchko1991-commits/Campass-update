@@ -1,29 +1,29 @@
 {
-  "version": "2.2.2",
-  "minInstalledVersion": "2.2.1",
+  "version": "2.2.3",
+  "minInstalledVersion": "2.2.2",
   "touchesUserData": false,
   "requiresSupabaseMigration": false,
   "releaseNotes": [
-    "Карточки записей из ежедневника в базе знаний теперь автоматически растут по высоте и не перекрывают длинный текст.",
-    "Если исходный связанный блок удалён из ежедневной заметки, его карточка автоматически удаляется из базы знаний.",
-    "Если текст связанного блока отредактирован в ежедневнике, Compass старается обновить текст карточки, сохраняя чекбокс.",
-    "Дневная заметка остаётся источником истины: удаление карточки не затрагивает другие записи и пользовательский текст."
+    "Поле «Название раздела» принудительно удерживается над клавиатурой iPhone и остаётся видимым во время ввода.",
+    "Улучшена защита от перекрытия клавиатурой в других формах Compass.",
+    "Стандартное приветствие ежедневной заметки теперь оформляется заголовком второго уровня.",
+    "Точное стандартное приветствие безопасно исправляется и в уже созданных дневных заметках; пользовательский текст не изменяется."
   ],
   "files": [
     {
       "path": "main.js",
       "url": "https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/main.js",
-      "sha256": "165492f4968fc3b70d1f979b1e783b1ec81c8fcfb7960c0f545f1020e81dcfc6"
+      "sha256": "78faf80004c878c871c2d29e90ce99ede126c49917ebf5d65dff56c17cd4667d"
     },
     {
       "path": "styles.css",
       "url": "https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/styles.css",
-      "sha256": "66c68c948c0a2c217e469670c542b28f4e3997f128bc1cd06edd780822d54d9f"
+      "sha256": "e96e00f004c9052d30ea1258ac11998e2c8da4734a402b114c48e01d290c71d0"
     },
     {
       "path": "manifest.json",
       "url": "https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/manifest.json",
-      "sha256": "22d0796c1079078a839b2815817192e2884599b104aa5e80356d0d2ed2216961"
+      "sha256": "c9689397f249ffec1927632b8be3136ddb4405562f453430a866d77fccbe5926"
     }
   ]
 }

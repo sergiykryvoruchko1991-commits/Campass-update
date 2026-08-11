@@ -1,7 +1,7 @@
 const { Plugin, Modal, Notice, ItemView, MarkdownView, moment, setIcon, Setting, PluginSettingTab, requestUrl } = require('obsidian');
 
 const VIEW_TYPE = 'compass-sidebar-view';
-const COMPASS_PLUGIN_VERSION = '2.2.2';
+const COMPASS_PLUGIN_VERSION = '2.2.3';
 const COMPASS_DATA_SCHEMA_VERSION = 3;
 
 const COMPASS_UPDATE_MANIFEST_URL = 'https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/latest.json';
@@ -506,7 +506,15 @@ function attachMobileKeyboardAvoidance(rootEl) {
     clearFocusTimers();
     [80, 220, 480].forEach(delay => {
       focusTimers.push(window.setTimeout(() => {
-        try { element.scrollIntoView({ block: 'center', inline: 'nearest', behavior: delay === 480 ? 'smooth' : 'auto' }); } catch (_) {}
+        try {
+          element.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'auto' });
+          const vv = window.visualViewport;
+          const visibleTop = (vv ? vv.offsetTop : 0) + 18;
+          const visibleBottom = (vv ? vv.offsetTop + vv.height : window.innerHeight) - 28;
+          const rect = element.getBoundingClientRect();
+          if (rect.bottom > visibleBottom) rootEl.scrollTop += rect.bottom - visibleBottom + 32;
+          else if (rect.top < visibleTop) rootEl.scrollTop -= visibleTop - rect.top + 20;
+        } catch (_) {}
       }, delay));
     });
   };
@@ -516,8 +524,9 @@ function attachMobileKeyboardAvoidance(rootEl) {
     const vvTop = viewport ? viewport.offsetTop : 0;
     const keyboardOpen = viewport ? vvHeight < window.innerHeight * 0.82 : false;
 
+    const keyboardHeight = viewport ? Math.max(0, window.innerHeight - (viewport.height + viewport.offsetTop)) : 0;
     rootEl.style.setProperty('--compass-vv-height', `${Math.max(240, Math.round(vvHeight))}px`);
-    rootEl.style.setProperty('--compass-keyboard-offset', keyboardOpen ? '12px' : '0px');
+    rootEl.style.setProperty('--compass-keyboard-offset', keyboardOpen ? `${Math.max(24, Math.round(keyboardHeight))}px` : '0px');
     rootEl.classList.toggle('is-keyboard-open', keyboardOpen);
 
     if (modal) {
@@ -2911,4 +2920,46 @@ CompassPlugin222.prototype.reconcileAllLibraryDailyLinks222 = async function() {
   }
   if (removed) await this.saveCompassData();
   return removed;
+};
+
+
+/* Compass 2.2.3: focused iOS form visibility + daily greeting formatting. */
+CompassPlugin222.prototype.formatDailyGreetings223 = async function() {
+  const exact = [
+    'Привет👋 что расскажешь нового сегодня?',
+    'Привет 👋 что расскажешь нового сегодня?',
+    'Привет, что нового расскажешь сегодня?',
+    'Привет что нового расскажешь сегодня?'
+  ];
+  const fix = (content) => {
+    const lines = String(content || '').replace(/\r\n/g, '\n').split('\n');
+    let changed = false;
+    const out = lines.map(line => {
+      const trimmed = line.trim();
+      if (/^#{1,6}\s+/.test(trimmed)) return line;
+      if (exact.includes(trimmed)) { changed = true; return `## ${trimmed}`; }
+      return line;
+    });
+    return { changed, content: out.join('\n') };
+  };
+
+  const paths = ['04 Шаблоны/Шаблон дня.md'];
+  for (const file of this.app.vault.getMarkdownFiles()) if (file.path.startsWith('01 Дни/')) paths.push(file.path);
+  let count = 0;
+  for (const path of paths) {
+    const file = this.app.vault.getAbstractFileByPath(path);
+    if (!file || file.extension !== 'md') continue;
+    const original = await this.app.vault.read(file);
+    const result = fix(original);
+    if (result.changed) { await this.app.vault.modify(file, result.content); count += 1; }
+  }
+  return count;
+};
+
+const compass223BaseOnload = CompassPlugin222.prototype.onload;
+CompassPlugin222.prototype.onload = async function() {
+  await compass223BaseOnload.call(this);
+  this.app.workspace.onLayoutReady(() => {
+    window.setTimeout(() => this.formatDailyGreetings223().catch(e => console.warn('Compass greeting migration', e)), 1200);
+  });
 };

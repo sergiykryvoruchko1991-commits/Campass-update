@@ -1,9 +1,9 @@
 {
   "id": "compass-add",
   "name": "Compass",
-  "version": "2.2.2",
+  "version": "2.2.3",
   "minAppVersion": "1.5.0",
-  "description": "Compass 2.2.2: адаптивные карточки хендовера и автоматическая синхронизация с исходной дневной записью.",
+  "description": "Compass 2.2.3: исправление клавиатуры iOS при создании разделов и форматирование приветствия ежедневной заметки.",
   "author": "OpenAI",
   "isDesktopOnly": false
 }
