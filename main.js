@@ -1,7 +1,7 @@
 const { Plugin, Modal, Notice, ItemView, MarkdownView, moment, setIcon, Setting, PluginSettingTab, requestUrl } = require('obsidian');
 
 const VIEW_TYPE = 'compass-sidebar-view';
-const COMPASS_PLUGIN_VERSION = '2.2.5';
+const COMPASS_PLUGIN_VERSION = '2.2.6';
 const COMPASS_DATA_SCHEMA_VERSION = 3;
 
 const COMPASS_UPDATE_MANIFEST_URL = 'https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/latest.json';
@@ -96,7 +96,35 @@ class AddSectionModal extends Modal {
     const { contentEl } = this;
     contentEl.addClass('compass-section-modal', 'compass-add-section-modal');
     contentEl.createEl('h2', { text: 'Новый раздел' });
-    this.descriptionEl = contentEl.createEl('p', { cls: 'setting-item-description' });
+
+    // iOS stabilization: keep the most important field at the top of the form.
+    // This avoids relying on Safari/Obsidian keyboard scrolling, which is unreliable
+    // when VisualViewport changes while the keyboard animates.
+    const nameSetting = new Setting(contentEl)
+      .setName('Название раздела')
+      .setDesc('Например: Работа, Пароход, Спорт.')
+      .addText(text => {
+        text.setPlaceholder('Пароход');
+        text.inputEl.addClass('compass-section-name-input');
+        text.onChange(value => { this.name = value.trim(); });
+
+        const keepAtTop = () => {
+          const input = text.inputEl;
+          const item = input.closest('.setting-item') || input;
+          const scrollHost = contentEl.closest('.modal-content') || contentEl;
+          [0, 100, 260, 520].forEach(delay => window.setTimeout(() => {
+            try {
+              item.scrollIntoView({ block: 'start', inline: 'nearest', behavior: 'auto' });
+              scrollHost.scrollTop = Math.max(0, scrollHost.scrollTop - 18);
+            } catch (_) {}
+          }, delay));
+        };
+        text.inputEl.addEventListener('focus', keepAtTop);
+        text.inputEl.addEventListener('click', keepAtTop);
+      });
+    nameSetting.settingEl.addClass('compass-section-name-setting');
+
+    this.descriptionEl = contentEl.createEl('p', { cls: 'setting-item-description compass-section-description' });
     this.updateDescription();
 
     new Setting(contentEl)
@@ -118,37 +146,6 @@ class AddSectionModal extends Modal {
         .setPlaceholder('📌')
         .setValue(this.emoji)
         .onChange(value => { this.emoji = value.trim() || '📌'; }));
-
-    new Setting(contentEl)
-      .setName('Название раздела')
-      .setDesc('Например: Работа, Пароход, Спорт.')
-      .addText(text => {
-        text.setPlaceholder('Пароход');
-        text.inputEl.addClass('compass-section-name-input');
-        text.onChange(value => { this.name = value.trim(); });
-
-        const revealNameField = () => {
-          const input = text.inputEl;
-          const item = input.closest('.setting-item') || input;
-          const scrollHost = contentEl;
-          [80, 220, 420, 700].forEach(delay => window.setTimeout(() => {
-            try {
-              const vv = window.visualViewport;
-              const top = (vv ? vv.offsetTop : 0) + 70;
-              const bottom = (vv ? vv.offsetTop + vv.height : window.innerHeight) - 26;
-              const rect = item.getBoundingClientRect();
-              const targetCenter = top + Math.max(90, (bottom - top) * 0.42);
-              const delta = rect.top + rect.height / 2 - targetCenter;
-              if (Math.abs(delta) > 4) scrollHost.scrollTop += delta;
-              const inputRect = input.getBoundingClientRect();
-              if (inputRect.bottom > bottom) scrollHost.scrollTop += inputRect.bottom - bottom + 28;
-              if (inputRect.top < top) scrollHost.scrollTop -= top - inputRect.top + 18;
-            } catch (_) {}
-          }, delay));
-        };
-        text.inputEl.addEventListener('focus', revealNameField);
-        text.inputEl.addEventListener('click', revealNameField);
-      });
 
     const actions = contentEl.createDiv({ cls: 'compass-section-actions' });
     const cancel = actions.createEl('button', { text: 'Отмена' });

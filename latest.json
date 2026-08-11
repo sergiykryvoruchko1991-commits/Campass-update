@@ -1,28 +1,28 @@
 {
-  "version": "2.2.5",
-  "minInstalledVersion": "2.2.4",
+  "version": "2.2.6",
+  "minInstalledVersion": "2.2.5",
   "touchesUserData": false,
   "requiresSupabaseMigration": false,
   "releaseNotes": [
-    "Убран лишний внутренний крестик слева в окне «Новый раздел»: остаётся только стандартная кнопка закрытия справа.",
-    "Стандартная кнопка закрытия получила увеличенную область нажатия и более безопасное положение на iPhone.",
-    "Поле «Название раздела» больше не получает автофокус при открытии окна; при ручном фокусе форма несколько раз прокручивается так, чтобы строка ввода оставалась видимой над клавиатурой."
+    "Поле «Название раздела» перенесено в верх формы, чтобы оно физически не попадало под клавиатуру iPhone.",
+    "При фокусе поле дополнительно фиксируется в верхней видимой части окна; больше не полагаемся только на ненадёжную автопрокрутку iOS.",
+    "Размер поля ввода адаптирован для iOS и исключает автоматический zoom Safari/WebView."
   ],
   "files": [
     {
       "path": "main.js",
       "url": "https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/main.js",
-      "sha256": "9d279072eadcce8461c66d6478bca32a4d54a825a44ce8c485040e648cc27337"
+      "sha256": "628e4701a446728c8e3c93861401e3fc99aa66956c5ea2b8ad0be217059fdace"
     },
     {
       "path": "styles.css",
       "url": "https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/styles.css",
-      "sha256": "ff9dda7b97de13c88bcb9af60f7f4f2914065c2aefdd6ef23f5261798642c25c"
+      "sha256": "af4ce193afac904e30b0008065eff8792c62367ec9442f39f8e56c75c396be01"
     },
     {
       "path": "manifest.json",
       "url": "https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/manifest.json",
-      "sha256": "f0907a383fce1e61834ccfa935c6bfe28aa8ae64397949238968e43ffb34672b"
+      "sha256": "9a340422bd4bcd9e37a4ce460dd0fd20f06050ee40866a6e148e9346b229406a"
     }
   ]
 }

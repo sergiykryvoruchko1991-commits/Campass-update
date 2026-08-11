@@ -984,3 +984,32 @@
     scroll-margin-bottom: calc(190px + var(--compass-keyboard-offset, 0px)) !important;
   }
 }
+
+/* Compass 2.2.6: iPhone add-section stabilization.
+   The name field is intentionally first in the form so the keyboard cannot cover it. */
+@media (max-width: 500px) {
+  .compass-add-section-modal .compass-section-name-setting {
+    position: relative;
+    z-index: 2;
+    margin-top: 8px;
+    padding-bottom: 10px;
+    background: var(--background-primary);
+  }
+
+  .compass-add-section-modal .compass-section-name-setting .setting-item-control {
+    width: 100%;
+  }
+
+  .compass-add-section-modal .compass-section-name-setting input {
+    width: 100% !important;
+    min-height: 44px;
+    font-size: 16px !important; /* prevents iOS zoom and keeps caret stable */
+  }
+
+  .compass-keyboard-safe-modal .compass-add-section-modal.is-keyboard-open .compass-section-name-setting {
+    position: sticky;
+    top: 0;
+    background: var(--background-primary);
+    padding-top: 6px;
+  }
+}
