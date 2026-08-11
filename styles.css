@@ -614,3 +614,109 @@
     grid-template-columns: 1fr 1fr;
   }
 }
+
+/* Compass 2.2: flexible knowledge-base workflows */
+.compass-full-button {
+  width: 100%;
+  margin-top: 8px;
+}
+
+.compass-library-tools {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 0 0 10px;
+}
+
+.compass-library-tools button {
+  flex: 1 1 180px;
+}
+
+.compass-library-daily-title {
+  margin: 18px 0 8px;
+}
+
+.compass-library-daily-list {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.compass-library-daily-entry {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  padding: 8px 9px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 10px;
+  background: var(--background-secondary);
+}
+
+.compass-library-daily-entry:not(:has(input)) {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.compass-library-daily-entry.is-complete .compass-library-daily-text {
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+
+.compass-library-daily-open {
+  width: 100%;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 8px;
+  align-items: center;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 3px 4px;
+}
+
+.compass-library-daily-text {
+  min-width: 0;
+  white-space: normal;
+  line-height: 1.35;
+}
+
+.compass-library-daily-date,
+.compass-library-daily-jump {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.compass-library-picker .compass-library-entry {
+  margin-bottom: 6px;
+}
+
+.compass-library-settings-modal,
+.compass-principles-manager,
+.compass-section-modal {
+  max-height: min(88dvh, calc(100dvh - 20px));
+  overflow-y: auto;
+  padding-bottom: calc(20px + var(--compass-keyboard-offset, 0px));
+  scroll-padding-bottom: calc(120px + var(--compass-keyboard-offset, 0px));
+}
+
+@media (max-width: 500px) {
+  .compass-library-tools {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .compass-library-daily-open {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .compass-library-daily-date {
+    grid-column: 1 / -1;
+  }
+
+  .compass-section-modal {
+    max-height: calc(100dvh - 4px);
+  }
+}

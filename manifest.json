@@ -1,9 +1,9 @@
 {
   "id": "compass-add",
   "name": "Compass",
-  "version": "2.1.2",
+  "version": "2.2.0",
   "minAppVersion": "1.5.0",
-  "description": "Compass 2.1.2: вложенные папки в базах знаний.",
+  "description": "Compass 2.2.0: гибкие базы знаний, управление папками, дневные связи и периоды.",
   "author": "OpenAI",
   "isDesktopOnly": false
 }

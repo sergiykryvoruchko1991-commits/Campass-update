@@ -1,8 +1,8 @@
 const { Plugin, Modal, Notice, ItemView, MarkdownView, moment, setIcon, Setting, PluginSettingTab, requestUrl } = require('obsidian');
 
 const VIEW_TYPE = 'compass-sidebar-view';
-const COMPASS_PLUGIN_VERSION = '2.1.2';
-const COMPASS_DATA_SCHEMA_VERSION = 3;
+const COMPASS_PLUGIN_VERSION = '2.2.0';
+const COMPASS_DATA_SCHEMA_VERSION = 4;
 
 const COMPASS_UPDATE_MANIFEST_URL = 'https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/latest.json';
 const COMPASS_UPDATE_ALLOWED_FILES = ['main.js', 'styles.css', 'manifest.json'];
@@ -65,7 +65,8 @@ class ChoiceModal extends Modal {
       const button = grid.createEl('button', { text: type.label, cls: 'compass-choice' });
       button.onclick = () => {
         this.close();
-        this.onChoose(type);
+        if (type.libraryPicker) this.plugin.openLibraryTargetPicker();
+        else this.onChoose(type);
       };
     });
   }
@@ -81,6 +82,8 @@ class AddSectionModal extends Modal {
     this.emoji = '📌';
     this.sectionType = 'journal';
     this.descriptionEl = null;
+    this.cleanupKeyboardDismiss = null;
+    this.cleanupKeyboardAvoidance = null;
   }
 
   updateDescription() {
@@ -94,6 +97,8 @@ class AddSectionModal extends Modal {
 
   onOpen() {
     const { contentEl } = this;
+    this.cleanupKeyboardDismiss = attachMobileKeyboardDismiss(contentEl);
+    this.cleanupKeyboardAvoidance = attachMobileKeyboardAvoidance(contentEl);
     contentEl.addClass('compass-section-modal');
     contentEl.createEl('h2', { text: 'Новый раздел' });
     this.descriptionEl = contentEl.createEl('p', { cls: 'setting-item-description' });
@@ -142,7 +147,12 @@ class AddSectionModal extends Modal {
     };
   }
 
-  onClose() { this.contentEl.empty(); }
+  onClose() {
+    blurActiveEditable();
+    if (this.cleanupKeyboardAvoidance) this.cleanupKeyboardAvoidance();
+    if (this.cleanupKeyboardDismiss) this.cleanupKeyboardDismiss();
+    this.contentEl.empty();
+  }
 }
 
 class NewDocumentModal extends Modal {
@@ -179,7 +189,12 @@ class NewDocumentModal extends Modal {
     };
   }
 
-  onClose() { this.contentEl.empty(); }
+  onClose() {
+    blurActiveEditable();
+    if (this.cleanupKeyboardAvoidance) this.cleanupKeyboardAvoidance();
+    if (this.cleanupKeyboardDismiss) this.cleanupKeyboardDismiss();
+    this.contentEl.empty();
+  }
 }
 
 class NewLibraryFolderModal extends Modal {
@@ -189,10 +204,14 @@ class NewLibraryFolderModal extends Modal {
     this.parentPath = parentPath;
     this.onCreated = onCreated;
     this.name = '';
+    this.cleanupKeyboardDismiss = null;
+    this.cleanupKeyboardAvoidance = null;
   }
 
   onOpen() {
     const { contentEl } = this;
+    this.cleanupKeyboardDismiss = attachMobileKeyboardDismiss(contentEl);
+    this.cleanupKeyboardAvoidance = attachMobileKeyboardAvoidance(contentEl);
     contentEl.createEl('h2', { text: 'Новая папка' });
     new Setting(contentEl)
       .setName('Название')
@@ -216,6 +235,299 @@ class NewLibraryFolderModal extends Modal {
     };
   }
 
+  onClose() {
+    blurActiveEditable();
+    if (this.cleanupKeyboardAvoidance) this.cleanupKeyboardAvoidance();
+    if (this.cleanupKeyboardDismiss) this.cleanupKeyboardDismiss();
+    this.contentEl.empty();
+  }
+}
+
+
+class LibraryFolderSettingsModal extends Modal {
+  constructor(app, plugin, folderPath, label, onDone) {
+    super(app);
+    this.plugin = plugin;
+    this.folderPath = folderPath;
+    this.label = label || folderPath.split('/').pop();
+    this.onDone = onDone;
+  }
+
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.addClass('compass-library-settings-modal');
+    contentEl.createEl('h2', { text: `⚙️ ${this.label}` });
+    contentEl.createEl('p', {
+      text: 'Эти функции включаются только для этой папки. Обновление Compass ничего не включает автоматически.',
+      cls: 'setting-item-description'
+    });
+    const current = this.plugin.getLibraryFolderSetting(this.folderPath);
+
+    new Setting(contentEl)
+      .setName('Добавлять из ежедневной заметки')
+      .setDesc('Показывает «📚 База знаний» в меню добавления блока. После выбора можно пройти по подпапкам и выбрать место записи.')
+      .addToggle(toggle => toggle.setValue(Boolean(current.dailyEnabled)).onChange(async value => {
+        await this.plugin.setLibraryFolderSetting(this.folderPath, { dailyEnabled: value });
+      }));
+
+    new Setting(contentEl)
+      .setName('Чекбоксы у собранных записей')
+      .setDesc('Удобно для хендовера и других рабочих списков. Исходные записи в ежедневнике не удаляются.')
+      .addToggle(toggle => toggle.setValue(Boolean(current.checkboxMode)).onChange(async value => {
+        await this.plugin.setLibraryFolderSetting(this.folderPath, { checkboxMode: value });
+      }));
+
+    new Setting(contentEl)
+      .setName('Скрывать дату в списке')
+      .setDesc('Текст записи показывается без даты, но по нажатию всё равно открывается исходный день.')
+      .addToggle(toggle => toggle.setValue(Boolean(current.hideDates)).onChange(async value => {
+        await this.plugin.setLibraryFolderSetting(this.folderPath, { hideDates: value });
+      }));
+
+    new Setting(contentEl)
+      .setName('Папки по периодам')
+      .setDesc('Разрешает вручную сформировать папку за выбранный период, например 12.03.2025–05.04.2025.')
+      .addToggle(toggle => toggle.setValue(Boolean(current.periodMode)).onChange(async value => {
+        await this.plugin.setLibraryFolderSetting(this.folderPath, { periodMode: value });
+      }));
+
+    if (current.periodMode) {
+      new Setting(contentEl)
+        .setName('Сформировать период')
+        .setDesc('Создаёт обычную папку и показывает в ней связанные дневные записи за выбранные даты.')
+        .addButton(button => button.setButtonText('Выбрать даты').onClick(() => {
+          new CreateLibraryPeriodModal(this.app, this.plugin, this.folderPath, async () => {
+            if (this.onDone) this.onDone();
+          }).open();
+        }));
+    }
+
+    const close = contentEl.createEl('button', { text: 'Готово', cls: 'mod-cta compass-full-button' });
+    close.onclick = () => { this.close(); if (this.onDone) this.onDone(); };
+  }
+
+  onClose() { this.contentEl.empty(); }
+}
+
+class CreateLibraryPeriodModal extends Modal {
+  constructor(app, plugin, rootPath, onDone) {
+    super(app);
+    this.plugin = plugin;
+    this.rootPath = rootPath;
+    this.onDone = onDone;
+    this.start = '';
+    this.end = '';
+  }
+
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.createEl('h2', { text: 'Сформировать папку периода' });
+    contentEl.createEl('p', { text: 'Укажи начало и конец периода. Исходные записи останутся в своих ежедневных заметках.', cls: 'setting-item-description' });
+
+    new Setting(contentEl).setName('Начало').addText(text => {
+      text.inputEl.type = 'date';
+      text.onChange(value => { this.start = value; });
+    });
+    new Setting(contentEl).setName('Конец').addText(text => {
+      text.inputEl.type = 'date';
+      text.onChange(value => { this.end = value; });
+    });
+
+    const actions = contentEl.createDiv({ cls: 'compass-section-actions' });
+    actions.createEl('button', { text: 'Отмена' }).onclick = () => this.close();
+    const create = actions.createEl('button', { text: 'Сформировать', cls: 'mod-cta' });
+    create.onclick = async () => {
+      if (!this.start || !this.end) return new Notice('Укажи обе даты');
+      if (this.start > this.end) return new Notice('Дата начала должна быть раньше даты окончания');
+      create.disabled = true;
+      try {
+        await this.plugin.createLibraryPeriod(this.rootPath, this.start, this.end);
+        this.close();
+        if (this.onDone) this.onDone();
+      } catch (e) {
+        new Notice(`Не удалось создать период: ${e.message || e}`);
+        create.disabled = false;
+      }
+    };
+  }
+
+  onClose() { this.contentEl.empty(); }
+}
+
+class RenameLibraryItemModal extends Modal {
+  constructor(app, plugin, item, onDone) {
+    super(app);
+    this.plugin = plugin;
+    this.item = item;
+    this.onDone = onDone;
+    this.value = item.extension === 'md' ? item.basename : item.name;
+  }
+
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.createEl('h2', { text: 'Переименовать' });
+    new Setting(contentEl).setName('Новое название').addText(text => {
+      text.setValue(this.value);
+      text.onChange(value => { this.value = value.trim(); });
+      setTimeout(() => text.inputEl.focus(), 50);
+    });
+    const actions = contentEl.createDiv({ cls: 'compass-section-actions' });
+    actions.createEl('button', { text: 'Отмена' }).onclick = () => this.close();
+    const save = actions.createEl('button', { text: 'Сохранить', cls: 'mod-cta' });
+    save.onclick = async () => {
+      if (!this.value) return new Notice('Название не может быть пустым');
+      try {
+        await this.plugin.renameLibraryItem(this.item, this.value);
+        this.close();
+        if (this.onDone) this.onDone();
+      } catch (e) { new Notice(`Не удалось переименовать: ${e.message || e}`); }
+    };
+  }
+}
+
+class LibraryItemActionsModal extends Modal {
+  constructor(app, plugin, item, onDone) {
+    super(app);
+    this.plugin = plugin;
+    this.item = item;
+    this.onDone = onDone;
+  }
+
+  onOpen() {
+    const { contentEl } = this;
+    const isFolder = Array.isArray(this.item.children);
+    contentEl.createEl('h2', { text: `${isFolder ? '📁' : '📄'} ${isFolder ? this.item.name : this.item.basename}` });
+
+    if (isFolder) {
+      const settings = contentEl.createEl('button', { text: '⚙️ Настройки папки', cls: 'compass-full-button' });
+      settings.onclick = () => new LibraryFolderSettingsModal(this.app, this.plugin, this.item.path, this.item.name, this.onDone).open();
+    }
+
+    const rename = contentEl.createEl('button', { text: '✏️ Переименовать', cls: 'compass-full-button' });
+    rename.onclick = () => new RenameLibraryItemModal(this.app, this.plugin, this.item, this.onDone).open();
+
+    const remove = contentEl.createEl('button', { text: '🗑 Удалить', cls: 'compass-danger-action compass-full-button' });
+    remove.onclick = async () => {
+      const hasChildren = isFolder && this.item.children.length > 0;
+      const message = hasChildren
+        ? 'В этой папке есть файлы или подпапки. Удалить папку вместе со всем содержимым?'
+        : `Удалить ${isFolder ? 'папку' : 'заметку'} «${isFolder ? this.item.name : this.item.basename}»?`;
+      if (!window.confirm(message)) return;
+      try {
+        await this.plugin.deleteLibraryItem(this.item);
+        this.close();
+        if (this.onDone) this.onDone();
+      } catch (e) { new Notice(`Не удалось удалить: ${e.message || e}`); }
+    };
+
+    contentEl.createEl('button', { text: 'Отмена', cls: 'compass-secondary-action compass-full-button' }).onclick = () => this.close();
+  }
+
+  onClose() { this.contentEl.empty(); }
+}
+
+class LibraryTargetPickerModal extends Modal {
+  constructor(app, plugin) {
+    super(app);
+    this.plugin = plugin;
+    this.root = null;
+    this.currentPath = null;
+  }
+
+  onOpen() { this.render(); }
+
+  async render() {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.addClass('compass-library-picker');
+    contentEl.createEl('h2', { text: '📚 Куда добавить запись?' });
+
+    if (!this.root) {
+      const roots = this.plugin.getDailyLibraryRoots();
+      if (!roots.length) {
+        contentEl.createEl('p', { text: 'Сначала включи «Добавлять из ежедневной заметки» в настройках нужной базы знаний.' });
+        return;
+      }
+      const list = contentEl.createDiv({ cls: 'compass-library-list' });
+      roots.forEach(root => {
+        const b = list.createEl('button', { cls: 'compass-library-entry' });
+        b.createSpan({ text: root.emoji || '📚', cls: 'compass-library-entry-icon' });
+        b.createSpan({ text: root.name, cls: 'compass-library-entry-name' });
+        b.onclick = () => { this.root = root; this.currentPath = root.folder; this.render(); };
+      });
+      return;
+    }
+
+    const folder = this.app.vault.getAbstractFileByPath(this.currentPath);
+    const title = this.currentPath === this.root.folder ? this.root.name : this.currentPath.split('/').pop();
+    contentEl.createEl('p', { text: `Выбрано: ${this.root.name}${this.currentPath === this.root.folder ? '' : ' › ' + this.currentPath.slice(this.root.folder.length + 1).split('/').join(' › ')}`, cls: 'setting-item-description' });
+    if (this.plugin.isLibraryDailySelectable(this.currentPath)) {
+      const choose = contentEl.createEl('button', { text: `✓ Добавить сюда: ${title}`, cls: 'mod-cta compass-full-button' });
+      choose.onclick = async () => {
+        this.close();
+        await this.plugin.addLibraryEntry(this.currentPath, title);
+      };
+    } else {
+      contentEl.createEl('p', { text: 'Эта папка служит только для навигации. Выбери папку, для которой включено добавление из ежедневника.', cls: 'setting-item-description' });
+    }
+
+    const folders = folder && Array.isArray(folder.children)
+      ? folder.children.filter(item => Array.isArray(item.children) && this.plugin.isLibraryDailyNavigable(item.path)).sort((a,b) => a.name.localeCompare(b.name, 'ru'))
+      : [];
+    if (folders.length) {
+      contentEl.createEl('h3', { text: 'Подпапки' });
+      const list = contentEl.createDiv({ cls: 'compass-library-list' });
+      folders.forEach(item => {
+        const b = list.createEl('button', { cls: 'compass-library-entry' });
+        b.createSpan({ text: '📁', cls: 'compass-library-entry-icon' });
+        b.createSpan({ text: item.name, cls: 'compass-library-entry-name' });
+        b.createSpan({ text: '›', cls: 'compass-library-entry-chevron' });
+        b.onclick = () => { this.currentPath = item.path; this.render(); };
+      });
+    }
+
+    const nav = contentEl.createDiv({ cls: 'compass-section-actions' });
+    if (this.currentPath !== this.root.folder) {
+      nav.createEl('button', { text: '← Назад' }).onclick = () => {
+        this.currentPath = this.currentPath.split('/').slice(0,-1).join('/');
+        this.render();
+      };
+    } else {
+      nav.createEl('button', { text: '← К списку баз' }).onclick = () => { this.root = null; this.currentPath = null; this.render(); };
+    }
+  }
+
+  onClose() { this.contentEl.empty(); }
+}
+
+class PrinciplesManagerModal extends Modal {
+  constructor(app, plugin, onDone) {
+    super(app);
+    this.plugin = plugin;
+    this.onDone = onDone;
+  }
+
+  async onOpen() { await this.render(); }
+
+  async render() {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.addClass('compass-principles-manager');
+    contentEl.createEl('h2', { text: '🧭 Принципы над календарём' });
+    contentEl.createEl('p', { text: 'Выключение убирает принцип только из ротации над календарём. Исходная запись остаётся в дневнике и журнале.', cls: 'setting-item-description' });
+    const principles = await this.plugin.getPrinciples();
+    if (!principles.length) return contentEl.createEl('p', { text: 'Принципов пока нет.' });
+    principles.forEach(principle => {
+      const row = new Setting(contentEl).setName(principle);
+      row.addToggle(toggle => toggle
+        .setValue(!this.plugin.hiddenPrinciples.includes(principle))
+        .onChange(async visible => {
+          await this.plugin.setPrincipleVisible(principle, visible);
+          if (this.onDone) this.onDone();
+        }));
+    });
+  }
+
   onClose() { this.contentEl.empty(); }
 }
 
@@ -229,7 +541,7 @@ class LibraryModal extends Modal {
     this.label = label;
   }
 
-  onOpen() { this.render(); }
+  async onOpen() { await this.render(); }
 
   getRelativeParts() {
     if (this.currentPath === this.rootPath) return [];
@@ -239,6 +551,27 @@ class LibraryModal extends Modal {
   openFolder(path) {
     this.currentPath = path;
     this.render();
+  }
+
+  attachManagePress(button, item) {
+    let timer = null;
+    let suppress = false;
+    const cancel = () => { if (timer) window.clearTimeout(timer); timer = null; };
+    button.addEventListener('contextmenu', event => {
+      event.preventDefault();
+      new LibraryItemActionsModal(this.app, this.plugin, item, () => this.render()).open();
+    });
+    button.addEventListener('touchstart', () => {
+      cancel();
+      timer = window.setTimeout(() => {
+        suppress = true;
+        new LibraryItemActionsModal(this.app, this.plugin, item, () => this.render()).open();
+      }, 600);
+    }, { passive: true });
+    button.addEventListener('touchend', cancel, { passive: true });
+    button.addEventListener('touchcancel', cancel, { passive: true });
+    button.addEventListener('touchmove', cancel, { passive: true });
+    return () => { if (suppress) { suppress = false; return true; } return false; };
   }
 
   renderBreadcrumbs(container) {
@@ -255,7 +588,7 @@ class LibraryModal extends Modal {
     }
   }
 
-  render() {
+  async render() {
     const { contentEl } = this;
     contentEl.empty();
     contentEl.addClass('compass-library-modal');
@@ -272,6 +605,15 @@ class LibraryModal extends Modal {
     }
 
     this.renderBreadcrumbs(contentEl);
+
+    const tools = contentEl.createDiv({ cls: 'compass-library-tools' });
+    const folderSettings = tools.createEl('button', { text: '⚙️ Настройки этой папки' });
+    folderSettings.onclick = () => new LibraryFolderSettingsModal(this.app, this.plugin, this.currentPath, this.currentPath === this.rootPath ? this.label : this.currentPath.split('/').pop(), () => this.render()).open();
+    const currentSetting = this.plugin.getLibraryFolderSetting(this.currentPath);
+    if (currentSetting.periodMode) {
+      const period = tools.createEl('button', { text: '🗓 Сформировать период' });
+      period.onclick = () => new CreateLibraryPeriodModal(this.app, this.plugin, this.currentPath, () => this.render()).open();
+    }
 
     const createBar = contentEl.createDiv({ cls: 'compass-library-create-bar' });
     const addFolder = createBar.createEl('button', { text: '＋ Папка', cls: 'mod-cta' });
@@ -297,7 +639,6 @@ class LibraryModal extends Modal {
         text: 'Папка пока пустая. Создай подпапку или заметку.',
         cls: 'setting-item-description compass-library-empty'
       });
-      return;
     }
 
     const list = contentEl.createDiv({ cls: 'compass-library-list compass-library-tree-list' });
@@ -306,22 +647,87 @@ class LibraryModal extends Modal {
       button.createSpan({ text: '📁', cls: 'compass-library-entry-icon' });
       button.createSpan({ text: folderItem.name, cls: 'compass-library-entry-name' });
       button.createSpan({ text: '›', cls: 'compass-library-entry-chevron' });
-      button.onclick = () => this.openFolder(folderItem.path);
+      const wasManaged = this.attachManagePress(button, folderItem);
+      button.onclick = event => { if (wasManaged()) { event.preventDefault(); return; } this.openFolder(folderItem.path); };
     });
     files.forEach(file => {
       const button = list.createEl('button', { cls: 'compass-library-entry compass-library-note' });
       button.createSpan({ text: '📄', cls: 'compass-library-entry-icon' });
       button.createSpan({ text: file.basename, cls: 'compass-library-entry-name' });
-      button.onclick = async () => {
+      const wasManaged = this.attachManagePress(button, file);
+      button.onclick = async event => {
+        if (wasManaged()) { event.preventDefault(); return; }
         this.close();
         await this.app.workspace.getLeaf(false).openFile(file);
       };
     });
+
+    await this.renderCollectedEntries(contentEl);
+  }
+
+  async renderCollectedEntries(container) {
+    const period = this.plugin.getLibraryPeriodForFolder(this.currentPath);
+    const sourcePath = period ? period.rootPath : this.currentPath;
+    const setting = this.plugin.getLibraryFolderSetting(sourcePath);
+    const entries = await this.plugin.scanLibraryDailyEntries(sourcePath, period ? { start: period.start, end: period.end } : null);
+    const visible = period ? entries : entries.filter(entry => !this.plugin.isEntryInsideLibraryPeriod(sourcePath, entry.date));
+    if (!visible.length) return;
+    container.createEl('h3', { text: setting.checkboxMode ? 'Задачи из ежедневника' : 'Записи из ежедневника', cls: 'compass-library-daily-title' });
+    const list = container.createDiv({ cls: 'compass-library-daily-list' });
+    for (const entry of visible) {
+      const row = list.createDiv({ cls: `compass-library-daily-entry${this.plugin.isLibraryEntryCompleted(entry.key) ? ' is-complete' : ''}` });
+      if (setting.checkboxMode) {
+        const check = row.createEl('input', { attr: { type: 'checkbox' } });
+        check.checked = this.plugin.isLibraryEntryCompleted(entry.key);
+        check.onchange = async () => { await this.plugin.setLibraryEntryCompleted(entry.key, check.checked); await this.render(); };
+      }
+      const open = row.createEl('button', { cls: 'compass-library-daily-open' });
+      open.createSpan({ text: entry.text || 'Запись', cls: 'compass-library-daily-text' });
+      if (!setting.hideDates) open.createSpan({ text: formatJournalDate(entry.date), cls: 'compass-library-daily-date' });
+      open.createSpan({ text: '↗', cls: 'compass-library-daily-jump' });
+      open.onclick = async () => {
+        this.close();
+        const file = this.app.vault.getAbstractFileByPath(entry.filePath);
+        if (file) await this.app.workspace.getLeaf(false).openFile(file);
+      };
+    }
   }
 
   onClose() { this.contentEl.empty(); }
 }
 
+
+
+class RenameSectionModal extends Modal {
+  constructor(app, plugin, section, onDone) {
+    super(app);
+    this.plugin = plugin;
+    this.section = section;
+    this.onDone = onDone;
+    this.value = section.name || '';
+  }
+
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.createEl('h2', { text: 'Переименовать раздел' });
+    new Setting(contentEl).setName('Название').addText(text => {
+      text.setValue(this.value);
+      text.onChange(value => { this.value = value.trim(); });
+      setTimeout(() => text.inputEl.focus(), 50);
+    });
+    const actions = contentEl.createDiv({ cls: 'compass-section-actions' });
+    actions.createEl('button', { text: 'Отмена' }).onclick = () => this.close();
+    const save = actions.createEl('button', { text: 'Сохранить', cls: 'mod-cta' });
+    save.onclick = async () => {
+      if (!this.value) return new Notice('Название не может быть пустым');
+      try {
+        await this.plugin.renameSection(this.section, this.value);
+        this.close();
+        if (this.onDone) this.onDone();
+      } catch (e) { new Notice(`Не удалось переименовать: ${e.message || e}`); }
+    };
+  }
+}
 
 class SectionActionsModal extends Modal {
   constructor(app, plugin, section) {
@@ -341,13 +747,38 @@ class SectionActionsModal extends Modal {
       cls: 'setting-item-description'
     });
 
-    const archive = contentEl.createEl('button', { text: '📦 Перенести в архив', cls: 'compass-danger-action' });
+    if (this.section.type === 'library' && this.section.folder) {
+      const settings = contentEl.createEl('button', { text: '⚙️ Настройки базы знаний', cls: 'compass-full-button' });
+      settings.onclick = () => new LibraryFolderSettingsModal(this.app, this.plugin, this.section.folder, this.section.name).open();
+    }
+
+    if (this.section.source === 'custom') {
+      const rename = contentEl.createEl('button', { text: '✏️ Переименовать', cls: 'compass-full-button' });
+      rename.onclick = () => new RenameSectionModal(this.app, this.plugin, this.section, () => this.close()).open();
+    }
+
+    const archive = contentEl.createEl('button', { text: '📦 Перенести в архив', cls: 'compass-danger-action compass-full-button' });
     archive.onclick = async () => {
       const ok = await this.plugin.archiveSection(this.section);
-      if (ok) this.close();
+      if (ok) {
+        this.close();
+        window.setTimeout(() => blurActiveEditable(), 0);
+      }
     };
 
-    const cancel = contentEl.createEl('button', { text: 'Отмена', cls: 'compass-secondary-action' });
+    if (this.section.source === 'custom') {
+      const remove = contentEl.createEl('button', { text: '🗑 Удалить раздел', cls: 'compass-danger-action compass-full-button' });
+      remove.onclick = async () => {
+        const warning = this.section.type === 'library'
+          ? 'Удалить эту базу знаний со всеми файлами и подпапками? Это действие нельзя отменить.'
+          : 'Удалить этот журнал? Записи в ежедневных заметках останутся, но файл журнала будет удалён.';
+        if (!window.confirm(warning)) return;
+        const ok = await this.plugin.deleteSection(this.section);
+        if (ok) this.close();
+      };
+    }
+
+    const cancel = contentEl.createEl('button', { text: 'Отмена', cls: 'compass-secondary-action compass-full-button' });
     cancel.onclick = () => this.close();
   }
 
@@ -687,6 +1118,7 @@ class RelationshipSessionModal extends Modal {
 
   onClose() {
     blurActiveEditable();
+    if (this.cleanupKeyboardAvoidance) this.cleanupKeyboardAvoidance();
     if (this.cleanupKeyboardDismiss) this.cleanupKeyboardDismiss();
     this.contentEl.empty();
   }
@@ -1328,7 +1760,7 @@ class CompassSidebarView extends ItemView {
     const principleCard = container.createDiv({ cls: 'compass-principle-card' });
     principleCard.createDiv({ text: '🧭 Принцип', cls: 'compass-principle-label' });
     this.principleTextEl = principleCard.createDiv({ text: 'Загружаю принципы…', cls: 'compass-principle-text' });
-    principleCard.onclick = () => this.plugin.openTarget('03 Журналы/Принципы.md');
+    principleCard.onclick = () => new PrinciplesManagerModal(this.app, this.plugin, () => this.refreshPrinciple()).open();
     this.refreshPrinciple();
 
     const todayButton = container.createEl('button', { text: 'Открыть сегодня', cls: 'compass-today-button' });
@@ -1394,10 +1826,10 @@ class CompassSidebarView extends ItemView {
   }
 
   async refreshPrinciple() {
-    const principles = await this.plugin.getPrinciples();
+    const principles = await this.plugin.getVisiblePrinciples();
     if (!this.principleTextEl) return;
     if (!principles.length) {
-      this.principleTextEl.setText('Добавь первый принцип, и он появится здесь.');
+      this.principleTextEl.setText('Нет принципов для показа. Нажми сюда, чтобы настроить.');
       return;
     }
     this.principleIndex = Math.min(this.principleIndex || 0, principles.length - 1);
@@ -1405,7 +1837,7 @@ class CompassSidebarView extends ItemView {
   }
 
   async showNextPrinciple() {
-    const principles = await this.plugin.getPrinciples();
+    const principles = await this.plugin.getVisiblePrinciples();
     if (!this.principleTextEl || !principles.length) return;
     this.principleIndex = ((this.principleIndex || 0) + 1) % principles.length;
     this.principleTextEl.addClass('is-changing');
@@ -1474,6 +1906,10 @@ module.exports = class CompassPlugin extends Plugin {
     }));
     this.hiddenBuiltins = Array.isArray(data?.hiddenBuiltins) ? data.hiddenBuiltins : [];
     this.archivedSections = Array.isArray(data?.archivedSections) ? data.archivedSections : [];
+    this.librarySettings = data?.librarySettings && typeof data.librarySettings === 'object' ? data.librarySettings : {};
+    this.libraryPeriods = Array.isArray(data?.libraryPeriods) ? data.libraryPeriods : [];
+    this.hiddenPrinciples = Array.isArray(data?.hiddenPrinciples) ? data.hiddenPrinciples : [];
+    this.completedLibraryEntries = Array.isArray(data?.completedLibraryEntries) ? data.completedLibraryEntries : [];
     this.relationshipSettings = {
       projectUrl: data?.relationshipSettings?.projectUrl || '',
       publishableKey: data?.relationshipSettings?.publishableKey || '',
@@ -1543,6 +1979,17 @@ module.exports = class CompassPlugin extends Plugin {
         lastCheckedAt: data.updateSettings?.lastCheckedAt || null
       };
       version = 3;
+      changed = true;
+    }
+
+    // v3 -> v4: optional knowledge-base behavior and principle visibility.
+    // Only plugin settings are initialized; existing notes and folders are not rewritten.
+    if (version < 4) {
+      if (!data.librarySettings || typeof data.librarySettings !== 'object') data.librarySettings = {};
+      if (!Array.isArray(data.libraryPeriods)) data.libraryPeriods = [];
+      if (!Array.isArray(data.hiddenPrinciples)) data.hiddenPrinciples = [];
+      if (!Array.isArray(data.completedLibraryEntries)) data.completedLibraryEntries = [];
+      version = 4;
       changed = true;
     }
 
@@ -1630,7 +2077,294 @@ module.exports = class CompassPlugin extends Plugin {
       label: `${section.emoji} ${section.name}`,
       journal: section.journal
     }));
-    return [...builtins, ...custom];
+    const knowledge = this.hasDailyLibraryRoots()
+      ? [{ key: 'knowledge-base', label: '📚 База знаний', libraryPicker: true }]
+      : [];
+    return [...builtins, ...custom, ...knowledge];
+  }
+
+  getLibraryRoots() {
+    const roots = [];
+    if (!this.isBuiltinHidden('library:Книги и видео')) roots.push({ source: 'builtin', name: 'Книги и видео', emoji: '📚', folder: '02 Книги и видео' });
+    this.getCustomLibraries().forEach(section => roots.push({ ...section, source: 'custom' }));
+    return roots;
+  }
+
+  getLibraryFolderSetting(path) {
+    const raw = this.librarySettings?.[path] || {};
+    return {
+      dailyEnabled: Boolean(raw.dailyEnabled),
+      checkboxMode: Boolean(raw.checkboxMode),
+      hideDates: Boolean(raw.hideDates),
+      periodMode: Boolean(raw.periodMode)
+    };
+  }
+
+  async setLibraryFolderSetting(path, patch) {
+    this.librarySettings = this.librarySettings || {};
+    this.librarySettings[path] = { ...this.getLibraryFolderSetting(path), ...patch };
+    await this.saveCompassData();
+    this.refreshSidebar();
+  }
+
+  getDailyLibraryRoots() {
+    return this.getLibraryRoots().filter(root => Object.entries(this.librarySettings || {}).some(([path, value]) =>
+      Boolean(value?.dailyEnabled) && (path === root.folder || path.startsWith(`${root.folder}/`))
+    ));
+  }
+
+  hasDailyLibraryRoots() { return this.getDailyLibraryRoots().length > 0; }
+
+  isLibraryDailySelectable(path) {
+    return Object.entries(this.librarySettings || {}).some(([enabledPath, value]) =>
+      Boolean(value?.dailyEnabled) && (path === enabledPath || path.startsWith(`${enabledPath}/`))
+    );
+  }
+
+  isLibraryDailyNavigable(path) {
+    return this.isLibraryDailySelectable(path) || Object.entries(this.librarySettings || {}).some(([enabledPath, value]) =>
+      Boolean(value?.dailyEnabled) && enabledPath.startsWith(`${path}/`)
+    );
+  }
+
+  openLibraryTargetPicker() { new LibraryTargetPickerModal(this.app, this).open(); }
+
+  async setPrincipleVisible(principle, visible) {
+    const set = new Set(this.hiddenPrinciples || []);
+    if (visible) set.delete(principle); else set.add(principle);
+    this.hiddenPrinciples = [...set];
+    await this.saveCompassData();
+    this.refreshSidebar();
+  }
+
+  async getVisiblePrinciples() {
+    const all = await this.getPrinciples();
+    const hidden = new Set(this.hiddenPrinciples || []);
+    return all.filter(item => !hidden.has(item));
+  }
+
+  getLibraryPeriodForFolder(path) {
+    return (this.libraryPeriods || []).find(item => item.folderPath === path) || null;
+  }
+
+  isEntryInsideLibraryPeriod(rootPath, date) {
+    return (this.libraryPeriods || []).some(item => item.rootPath === rootPath && date >= item.start && date <= item.end);
+  }
+
+  async createLibraryPeriod(rootPath, start, end) {
+    const startM = moment(start, 'YYYY-MM-DD', true);
+    const endM = moment(end, 'YYYY-MM-DD', true);
+    if (!startM.isValid() || !endM.isValid()) throw new Error('Некорректные даты');
+    const name = `${startM.format('DD.MM.YYYY')}–${endM.format('DD.MM.YYYY')}`;
+    const folderPath = `${rootPath}/${name}`;
+    const existing = this.app.vault.getAbstractFileByPath(folderPath);
+    if (existing) throw new Error('Папка такого периода уже существует');
+    await this.ensureFolder(rootPath);
+    await this.app.vault.createFolder(folderPath);
+    this.libraryPeriods = [...(this.libraryPeriods || []), { rootPath, folderPath, start, end, createdAt: new Date().toISOString() }];
+    await this.saveCompassData();
+    new Notice(`Период сформирован: ${name}`);
+    return folderPath;
+  }
+
+  isLibraryEntryCompleted(key) { return (this.completedLibraryEntries || []).includes(key); }
+
+  async setLibraryEntryCompleted(key, completed) {
+    const set = new Set(this.completedLibraryEntries || []);
+    if (completed) set.add(key); else set.delete(key);
+    this.completedLibraryEntries = [...set];
+    await this.saveCompassData();
+  }
+
+  async scanLibraryDailyEntries(folderPath, period = null) {
+    const result = [];
+    const encoded = encodeURIComponent(folderPath);
+    const files = this.app.vault.getMarkdownFiles().filter(file => file.path.startsWith('01 Дни/'));
+    for (const file of files) {
+      const date = file.basename;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
+      if (period && (date < period.start || date > period.end)) continue;
+      let content;
+      try { content = await this.app.vault.cachedRead(file); } catch (_) { continue; }
+      const lines = content.split('\n');
+      let occurrence = 0;
+      for (let i = 0; i < lines.length; i += 1) {
+        const marker = lines[i].match(/^<!--\s*compass-library:([^>]+)\s*-->\s*$/);
+        if (!marker) continue;
+        let path;
+        try { path = decodeURIComponent(marker[1].trim()); } catch (_) { path = marker[1].trim(); }
+        if (path !== folderPath) continue;
+        occurrence += 1;
+        let heading = '';
+        for (let h = i - 1; h >= 0; h -= 1) {
+          const hm = lines[h].match(/^##\s+(.+)$/);
+          if (hm) { heading = hm[1].trim(); break; }
+          if (/^#{1,6}\s+/.test(lines[h])) break;
+        }
+        const body = [];
+        for (let j = i + 1; j < lines.length; j += 1) {
+          if (/^#{1,6}\s+/.test(lines[j])) break;
+          const line = lines[j].trim();
+          if (line && !/^<!--/.test(line)) body.push(line);
+        }
+        const text = body.join(' ').replace(/\s+/g, ' ').trim() || heading.replace(/^📚\s*/, '') || folderPath.split('/').pop();
+        result.push({
+          key: `${folderPath}|${date}|${occurrence}`,
+          date,
+          filePath: file.path,
+          text: text.length > 240 ? `${text.slice(0, 237)}…` : text
+        });
+      }
+    }
+    result.sort((a,b) => a.date.localeCompare(b.date) || a.key.localeCompare(b.key));
+    return result;
+  }
+
+  async addLibraryEntry(folderPath, label) {
+    let view = this.app.workspace.getActiveViewOfType(MarkdownView);
+    let file = view && view.file && view.file.path.startsWith('01 Дни/') ? view.file : null;
+    if (!file) file = await this.ensureDate(moment());
+    await this.app.workspace.getLeaf(false).openFile(file);
+    view = this.app.workspace.getActiveViewOfType(MarkdownView);
+    const heading = `📚 ${label || folderPath.split('/').pop()}`;
+    const marker = `<!-- compass-library:${encodeURIComponent(folderPath)} -->`;
+    const block = `\n## ${heading}\n${marker}\n\n`;
+    if (view && view.file && view.file.path === file.path) {
+      const editor = view.editor;
+      editor.setCursor(editor.lineCount(), 0);
+      editor.replaceSelection(block);
+      editor.focus();
+    } else {
+      await this.app.vault.append(file, block);
+    }
+    new Notice(`Добавлено в день: ${label || folderPath.split('/').pop()}`);
+  }
+
+  async rewriteDailyLibraryPaths(oldPath, newPath) {
+    const files = this.app.vault.getMarkdownFiles().filter(file => file.path.startsWith('01 Дни/'));
+    for (const file of files) {
+      const original = await this.app.vault.read(file);
+      const updated = original.replace(/<!--\s*compass-library:([^>]+)\s*-->/g, (full, raw) => {
+        let path;
+        try { path = decodeURIComponent(String(raw).trim()); } catch (_) { return full; }
+        if (path === oldPath || path.startsWith(`${oldPath}/`)) {
+          const next = `${newPath}${path.slice(oldPath.length)}`;
+          return `<!-- compass-library:${encodeURIComponent(next)} -->`;
+        }
+        return full;
+      });
+      if (updated !== original) await this.app.vault.modify(file, updated);
+    }
+  }
+
+  migrateLibraryPathState(oldPath, newPath) {
+    const nextSettings = {};
+    for (const [path, value] of Object.entries(this.librarySettings || {})) {
+      const key = path === oldPath || path.startsWith(`${oldPath}/`) ? `${newPath}${path.slice(oldPath.length)}` : path;
+      nextSettings[key] = value;
+    }
+    this.librarySettings = nextSettings;
+    this.libraryPeriods = (this.libraryPeriods || []).map(period => ({
+      ...period,
+      rootPath: period.rootPath === oldPath || period.rootPath.startsWith(`${oldPath}/`) ? `${newPath}${period.rootPath.slice(oldPath.length)}` : period.rootPath,
+      folderPath: period.folderPath === oldPath || period.folderPath.startsWith(`${oldPath}/`) ? `${newPath}${period.folderPath.slice(oldPath.length)}` : period.folderPath
+    }));
+    this.completedLibraryEntries = (this.completedLibraryEntries || []).map(key =>
+      key.startsWith(`${oldPath}|`) ? `${newPath}${key.slice(oldPath.length)}` : key
+    );
+  }
+
+  async renameLibraryItem(item, newName) {
+    const clean = this.sanitizeName(newName);
+    if (!clean) throw new Error('Недопустимое название');
+    const isFolder = Array.isArray(item.children);
+    const parent = item.path.split('/').slice(0,-1).join('/');
+    const target = `${parent}/${clean}${isFolder ? '' : '.md'}`;
+    if (target === item.path) return item;
+    if (this.app.vault.getAbstractFileByPath(target)) throw new Error('Такое название уже существует');
+    const oldPath = item.path;
+    await this.app.vault.rename(item, target);
+    if (isFolder) {
+      this.migrateLibraryPathState(oldPath, target);
+      await this.rewriteDailyLibraryPaths(oldPath, target);
+      await this.saveCompassData();
+    }
+    new Notice(`Переименовано: ${clean}`);
+    return this.app.vault.getAbstractFileByPath(target);
+  }
+
+  async deleteLibraryItem(item) {
+    const path = item.path;
+    try {
+      if (this.app.fileManager?.trashFile) await this.app.fileManager.trashFile(item);
+      else await this.app.vault.delete(item, true);
+    } catch (_) { await this.app.vault.delete(item, true); }
+    if (Array.isArray(item.children)) {
+      const nextSettings = {};
+      for (const [key, value] of Object.entries(this.librarySettings || {})) {
+        if (!(key === path || key.startsWith(`${path}/`))) nextSettings[key] = value;
+      }
+      this.librarySettings = nextSettings;
+      this.libraryPeriods = (this.libraryPeriods || []).filter(period => !(period.rootPath === path || period.rootPath.startsWith(`${path}/`) || period.folderPath === path || period.folderPath.startsWith(`${path}/`)));
+      this.completedLibraryEntries = (this.completedLibraryEntries || []).filter(key => !key.startsWith(`${path}|`) && !key.startsWith(`${path}/`));
+      await this.saveCompassData();
+    }
+    new Notice('Удалено');
+  }
+
+  async renameSection(section, newName) {
+    if (section.source !== 'custom') throw new Error('Встроенный раздел нельзя переименовать');
+    const clean = this.sanitizeName(newName);
+    if (!clean) throw new Error('Недопустимое название');
+    if (this.customSections.some(item => item !== section && item.name.toLocaleLowerCase('ru') === clean.toLocaleLowerCase('ru'))) throw new Error('Такой раздел уже существует');
+    const found = this.customSections.find(item => item.type === section.type && item.name === section.name);
+    if (!found) throw new Error('Раздел не найден');
+    if (found.type === 'library') {
+      const oldPath = found.folder;
+      const parent = oldPath.split('/').slice(0,-1).join('/');
+      const newPath = `${parent}/${clean}`;
+      if (this.app.vault.getAbstractFileByPath(newPath)) throw new Error('Папка с таким названием уже существует');
+      const folder = this.app.vault.getAbstractFileByPath(oldPath);
+      if (folder) await this.app.vault.rename(folder, newPath);
+      found.name = clean;
+      found.folder = newPath;
+      this.migrateLibraryPathState(oldPath, newPath);
+      await this.rewriteDailyLibraryPaths(oldPath, newPath);
+    } else {
+      const oldPath = `03 Журналы/${found.journal}.md`;
+      const newPath = `03 Журналы/${clean}.md`;
+      if (this.app.vault.getAbstractFileByPath(newPath)) throw new Error('Журнал с таким названием уже существует');
+      const file = this.app.vault.getAbstractFileByPath(oldPath);
+      if (file) await this.app.vault.rename(file, newPath);
+      found.name = clean;
+      found.journal = clean;
+    }
+    await this.saveCompassData();
+    this.refreshSidebar();
+    new Notice(`Раздел переименован: ${clean}`);
+  }
+
+  async deleteSection(section) {
+    if (section.source !== 'custom') return false;
+    const found = this.customSections.find(item => item.type === section.type && item.name === section.name);
+    if (!found) return false;
+    const path = found.type === 'library' ? found.folder : `03 Журналы/${found.journal}.md`;
+    const item = this.app.vault.getAbstractFileByPath(path);
+    if (item) {
+      try { if (this.app.fileManager?.trashFile) await this.app.fileManager.trashFile(item); else await this.app.vault.delete(item, true); }
+      catch (_) { await this.app.vault.delete(item, true); }
+    }
+    this.customSections = this.customSections.filter(item => item !== found);
+    if (found.type === 'library') {
+      const nextSettings = {};
+      for (const [key,value] of Object.entries(this.librarySettings || {})) if (!(key === path || key.startsWith(`${path}/`))) nextSettings[key] = value;
+      this.librarySettings = nextSettings;
+      this.libraryPeriods = (this.libraryPeriods || []).filter(period => !(period.rootPath === path || period.rootPath.startsWith(`${path}/`) || period.folderPath === path || period.folderPath.startsWith(`${path}/`)));
+    }
+    await this.saveCompassData();
+    this.refreshSidebar();
+    new Notice(`Удалено: ${section.name}`);
+    return true;
   }
 
   async saveCompassData() {
@@ -1642,6 +2376,10 @@ module.exports = class CompassPlugin extends Plugin {
       customSections: this.customSections,
       hiddenBuiltins: this.hiddenBuiltins,
       archivedSections: this.archivedSections,
+      librarySettings: this.librarySettings || {},
+      libraryPeriods: this.libraryPeriods || [],
+      hiddenPrinciples: this.hiddenPrinciples || [],
+      completedLibraryEntries: this.completedLibraryEntries || [],
       relationshipSettings: this.relationshipSettings,
       updateSettings: this.updateSettings || { autoCheck: true, lastCheckedAt: null }
     });
@@ -2351,6 +3089,7 @@ module.exports = class CompassPlugin extends Plugin {
       if (template) {
         content = await this.app.vault.read(template);
         content = content.replace(/{{date}}/g, date).replace(/{{dateLong}}/g, dateMoment.format('D MMMM YYYY'));
+        content = content.replace(/^\s*Привет, что нового расскажешь сегодня\?\s*$/m, '## Привет, что нового расскажешь сегодня?');
       }
       file = await this.app.vault.create(path, content);
     }
