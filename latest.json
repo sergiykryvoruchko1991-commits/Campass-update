@@ -1,28 +1,29 @@
 {
-  "version": "2.2.13",
+  "version": "2.2.14",
   "minInstalledVersion": "2.1.0",
   "touchesUserData": false,
   "requiresSupabaseMigration": false,
   "releaseNotes": [
-    "Поле текста в «Отношениях» на iPhone теперь переходит в отдельный экранный режим сразу по фокусу, без определения состояния клавиатуры.",
-    "Первоначальная позиция и ответ используют один и тот же фиксированный редактор в верхней части экрана.",
-    "Длинный текст прокручивается внутри поля."
+    "В разделе «Отношения» встроенное поле ответа убрано.",
+    "Кнопка «Ответить» открывает отдельное окно ввода по тому же принципу, что и рабочее окно «Изменить».",
+    "После отправки отдельное окно закрывается, а обсуждение обновляется.",
+    "Другие функции Compass не изменялись."
   ],
   "files": [
     {
       "path": "main.js",
       "url": "https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/main.js",
-      "sha256": "e3ff190e165899cefa0ce308cabbc8af3320b2b5c8d81821b0deecc0f20eb44a"
+      "sha256": "d5b87c911c739c436efdae09dc1be3d0af0cf7ba06df99fda6c0c59aa32cee39"
     },
     {
       "path": "styles.css",
       "url": "https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/styles.css",
-      "sha256": "0d1faa23c23fa9cedb01c4f78c850bcf919ce99cc992cb85f1ac2da6a84e86d8"
+      "sha256": "263f5cc3f6613f7afde8d3d40373c56f3c2b11aa9ff5462f4057e014f345df04"
     },
     {
       "path": "manifest.json",
       "url": "https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/manifest.json",
-      "sha256": "c945bdf4666dc870dc779aed4dba5d8b9869925d8a7dd093b14ebcc24f443052"
+      "sha256": "b1d48de7be98a546e15fc42488c870d8bccc3870b56dd6742cc4fd486d911b56"
     }
   ]
 }

@@ -1315,3 +1315,43 @@
     color: var(--text-muted);
   }
 }
+
+
+/* Compass 2.2.14: separate reply modal, same interaction model as editing */
+.compass-relationship-reply-modal {
+  max-width: 760px;
+}
+
+.compass-relationship-reply-modal .compass-situation-textarea {
+  width: 100%;
+  min-height: 42vh;
+  max-height: 58vh;
+  overflow-y: auto;
+  resize: vertical;
+}
+
+@media (max-width: 600px) {
+  .compass-relationship-reply-modal {
+    max-height: calc(100dvh - 8px);
+    overflow-y: auto;
+    padding-bottom: calc(18px + var(--compass-keyboard-offset, 0px));
+  }
+
+  .compass-relationship-reply-modal .compass-situation-textarea:focus {
+    position: static !important;
+    z-index: auto !important;
+    top: auto !important;
+    left: auto !important;
+    right: auto !important;
+    width: 100% !important;
+    height: 38vh !important;
+    min-height: 220px !important;
+    max-height: 46vh !important;
+    box-shadow: none !important;
+  }
+
+  .compass-discussion-actions {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+}

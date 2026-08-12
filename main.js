@@ -1,7 +1,7 @@
 const { Plugin, Modal, Notice, ItemView, MarkdownView, moment, setIcon, Setting, PluginSettingTab, requestUrl } = require('obsidian');
 
 const VIEW_TYPE = 'compass-sidebar-view';
-const COMPASS_PLUGIN_VERSION = '2.2.13';
+const COMPASS_PLUGIN_VERSION = '2.2.14';
 const COMPASS_DATA_SCHEMA_VERSION = 3;
 
 const COMPASS_UPDATE_MANIFEST_URL = 'https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/latest.json';
@@ -872,6 +872,64 @@ class RelationshipEditTextModal extends Modal {
   }
 }
 
+
+class RelationshipReplyModal extends Modal {
+  constructor(app, plugin, situationId, onSent) {
+    super(app);
+    this.plugin = plugin;
+    this.situationId = situationId;
+    this.onSent = onSent;
+    this.value = '';
+    this.cleanupKeyboardDismiss = null;
+    this.cleanupKeyboardAvoidance = null;
+  }
+
+  onOpen() {
+    const { contentEl } = this;
+    this.cleanupKeyboardDismiss = attachMobileKeyboardDismiss(contentEl);
+    this.cleanupKeyboardAvoidance = attachMobileKeyboardAvoidance(contentEl);
+    contentEl.addClass('compass-relationship-reply-modal');
+
+    contentEl.createEl('h2', { text: 'Ответить' });
+
+    const textarea = contentEl.createEl('textarea', {
+      cls: 'compass-situation-textarea',
+      attr: { placeholder: 'Напиши ответ…' }
+    });
+    textarea.addEventListener('input', () => { this.value = textarea.value; });
+
+    const actions = contentEl.createDiv({ cls: 'compass-section-actions' });
+    const cancel = actions.createEl('button', { text: 'Отмена' });
+    cancel.onclick = () => this.close();
+
+    const send = actions.createEl('button', { text: 'Отправить', cls: 'mod-cta' });
+    send.onclick = async () => {
+      const value = this.value.trim();
+      if (!value) return new Notice('Напиши сообщение');
+      send.disabled = true;
+      send.setText('Отправляю…');
+      try {
+        await this.plugin.addRelationshipMessage(this.situationId, value);
+        this.close();
+        if (this.onSent) await this.onSent();
+      } catch (e) {
+        new Notice(`Не удалось отправить: ${e.message || e}`);
+        send.disabled = false;
+        send.setText('Отправить');
+      }
+    };
+
+    setTimeout(() => textarea.focus(), 80);
+  }
+
+  onClose() {
+    blurActiveEditable();
+    if (this.cleanupKeyboardAvoidance) this.cleanupKeyboardAvoidance();
+    if (this.cleanupKeyboardDismiss) this.cleanupKeyboardDismiss();
+    this.contentEl.empty();
+  }
+}
+
 class RelationshipRenameModal extends Modal {
   constructor(app, plugin, situation, currentTitle, onDone) {
     super(app);
@@ -1094,26 +1152,14 @@ class RelationshipSituationModal extends Modal {
       return;
     }
 
-    const composer = container.createDiv({ cls: 'compass-message-composer' });
-    const textarea = composer.createEl('textarea', { cls: 'compass-relationship-mobile-editor', attr: { placeholder: 'Продолжить обсуждение…' } });
-    const keepComposerVisible = () => {
-      [60, 180, 360, 650].forEach(delay => window.setTimeout(() => {
-        try { composer.scrollIntoView({ block: 'end', inline: 'nearest', behavior: 'auto' }); } catch (_) {}
-      }, delay));
+    const actions = container.createDiv({ cls: 'compass-section-actions compass-discussion-actions' });
+    const reply = actions.createEl('button', { text: 'Ответить', cls: 'mod-cta' });
+    reply.onclick = () => {
+      new RelationshipReplyModal(this.app, this.plugin, this.situation.id, async () => {
+        await this.render();
+      }).open();
     };
-    textarea.addEventListener('focus', keepComposerVisible);
-    textarea.addEventListener('input', () => {
-      if (document.activeElement === textarea) keepComposerVisible();
-    });
-    const actions = composer.createDiv({ cls: 'compass-section-actions' });
-    const send = actions.createEl('button', { text: 'Отправить', cls: 'mod-cta' });
-    send.onclick = async () => {
-      const value = textarea.value.trim();
-      if (!value) return new Notice('Напиши сообщение');
-      send.disabled = true;
-      try { await this.plugin.addRelationshipMessage(this.situation.id, value); await this.render(); }
-      catch (e) { new Notice(`Не удалось отправить: ${e.message || e}`); send.disabled = false; }
-    };
+
     const requestClose = actions.createEl('button', { text: '🔒 Предложить закрыть тему' });
     requestClose.onclick = async () => {
       if (!window.confirm('Предложить партнёру закрыть эту тему?')) return;

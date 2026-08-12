@@ -1,9 +1,9 @@
 {
   "id": "compass-add",
   "name": "Compass",
-  "version": "2.2.13",
+  "version": "2.2.14",
   "minAppVersion": "1.5.0",
-  "description": "Compass 2.2.13: фокусный мобильный редактор текста в «Отношениях» на iPhone.",
+  "description": "Compass 2.2.14: ответ в «Отношениях» открывается отдельным окном, как редактирование.",
   "author": "OpenAI",
   "isDesktopOnly": false
 }
