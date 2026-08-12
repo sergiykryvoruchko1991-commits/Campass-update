@@ -1279,3 +1279,39 @@
     overflow: hidden !important;
   }
 }
+
+
+/* Compass 2.2.13
+   iPhone focus-driven relationship editor.
+   Does not depend on keyboard detection or visualViewport. */
+@media (max-width: 600px) {
+  .compass-relationship-mobile-editor:focus {
+    position: fixed !important;
+    z-index: 10050 !important;
+    top: calc(env(safe-area-inset-top, 0px) + 64px) !important;
+    left: 14px !important;
+    right: 14px !important;
+    width: auto !important;
+
+    height: 34vh !important;
+    min-height: 220px !important;
+    max-height: 38vh !important;
+
+    box-sizing: border-box !important;
+    margin: 0 !important;
+    padding: 14px !important;
+    resize: none !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+
+    border: 1px solid var(--interactive-accent) !important;
+    border-radius: 12px !important;
+    background: var(--background-primary) !important;
+    color: var(--text-normal) !important;
+    box-shadow: 0 10px 32px rgba(0, 0, 0, .32) !important;
+  }
+
+  .compass-relationship-mobile-editor:focus::placeholder {
+    color: var(--text-muted);
+  }
+}
