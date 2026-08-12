@@ -1,28 +1,29 @@
 {
-  "version": "2.2.10",
+  "version": "2.2.11",
   "minInstalledVersion": "2.1.0",
   "touchesUserData": false,
   "requiresSupabaseMigration": false,
   "releaseNotes": [
-    "Разрешено прямое обновление с Compass 2.1.0 до актуальной версии.",
-    "Предыдущие изменения Compass 2.2.x включены в этот полный пакет обновления.",
-    "Пользовательские заметки, папки и данные Vault не входят в пакет обновления."
+    "Исправлена работа длинного текста над клавиатурой в разделе «Отношения» на iPhone.",
+    "Поле ответа удерживается в видимой зоне при открытой клавиатуре.",
+    "Убраны кнопки «Диктовать» и «Скрыть клавиатуру» из форм «Отношений».",
+    "Заголовок «Обсуждение» стал компактнее, а цветовые точки перенесены в одну строку с ним."
   ],
   "files": [
     {
       "path": "main.js",
       "url": "https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/main.js",
-      "sha256": "fe597550b07490aab465e410e0edc304234cbd7b88ee866875cdb4e068826dee"
+      "sha256": "1bfc64a5acc899d7e6e5362bcf6b366e17455741c60ba9d02723148660a431ff"
     },
     {
       "path": "styles.css",
       "url": "https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/styles.css",
-      "sha256": "9bf868964ccb64d29fd74b062fbf94e2fc910b011c3abb06effafd7b9cea3193"
+      "sha256": "778666271439a68a877c2f3c4efbced8f2c92401520d8671d3271335af064e3d"
     },
     {
       "path": "manifest.json",
       "url": "https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/manifest.json",
-      "sha256": "b0b59f1f4bef34d3dadc6518b9ff2012fc9784204679599a59080c9a4cf7f7f7"
+      "sha256": "163796ec53358ae9c350cf410aac6042b85ccb8f168516e8ae5d6237924725f2"
     }
   ]
 }

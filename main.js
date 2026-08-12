@@ -1,7 +1,7 @@
 const { Plugin, Modal, Notice, ItemView, MarkdownView, moment, setIcon, Setting, PluginSettingTab, requestUrl } = require('obsidian');
 
 const VIEW_TYPE = 'compass-sidebar-view';
-const COMPASS_PLUGIN_VERSION = '2.2.10';
+const COMPASS_PLUGIN_VERSION = '2.2.11';
 const COMPASS_DATA_SCHEMA_VERSION = 3;
 
 const COMPASS_UPDATE_MANIFEST_URL = 'https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/latest.json';
@@ -758,6 +758,7 @@ class NewRelationshipSituationModal extends Modal {
   onOpen() {
     const { contentEl } = this;
     this.cleanupKeyboardDismiss = attachMobileKeyboardDismiss(contentEl);
+    this.cleanupKeyboardAvoidance = attachMobileKeyboardAvoidance(contentEl);
     contentEl.addClass('compass-situation-editor');
     const header = contentEl.createDiv({ cls: 'compass-situation-editor-header' });
     header.createEl('h2', { text: this.existingSituation ? 'Моя позиция' : 'Новая тема' });
@@ -779,12 +780,6 @@ class NewRelationshipSituationModal extends Modal {
     });
     textarea.addEventListener('input', () => { this.text = textarea.value; });
     setTimeout(() => textarea.focus(), 50);
-
-    const keyboardActions = contentEl.createDiv({ cls: 'compass-keyboard-actions' });
-    const dictate = keyboardActions.createEl('button', { text: '🎙️ Диктовать', cls: 'compass-dictate-button' });
-    this.cleanupDictation = attachSpeechDictation(dictate, textarea, 'ru-RU');
-    const hideKeyboard = keyboardActions.createEl('button', { text: '⌄ Скрыть клавиатуру', cls: 'compass-hide-keyboard' });
-    hideKeyboard.onclick = () => blurActiveEditable();
 
     const hint = contentEl.createEl('details', { cls: 'compass-situation-hint' });
     hint.createEl('summary', { text: 'Не знаю, с чего начать' });
@@ -850,11 +845,6 @@ class RelationshipEditTextModal extends Modal {
     const textarea = contentEl.createEl('textarea', { cls: 'compass-situation-textarea' });
     textarea.value = this.value;
     textarea.addEventListener('input', () => { this.value = textarea.value; });
-    const keyboardActions = contentEl.createDiv({ cls: 'compass-keyboard-actions' });
-    const dictate = keyboardActions.createEl('button', { text: '🎙️ Диктовать', cls: 'compass-dictate-button' });
-    this.cleanupDictation = attachSpeechDictation(dictate, textarea, 'ru-RU');
-    const hideKeyboard = keyboardActions.createEl('button', { text: '⌄ Скрыть клавиатуру', cls: 'compass-hide-keyboard' });
-    hideKeyboard.onclick = () => blurActiveEditable();
     const actions = contentEl.createDiv({ cls: 'compass-section-actions' });
     const cancel = actions.createEl('button', { text: 'Отмена' });
     cancel.onclick = () => this.close();
@@ -982,8 +972,9 @@ class RelationshipSituationModal extends Modal {
       }
 
       if (bothReady) {
-        contentEl.createEl('h3', { text: 'Обсуждение', cls: 'compass-discussion-title' });
-        this.renderColorPicker(contentEl, prefs);
+        const discussionBar = contentEl.createDiv({ cls: 'compass-discussion-bar' });
+        discussionBar.createEl('h3', { text: 'Обсуждение', cls: 'compass-discussion-title' });
+        this.renderColorPicker(discussionBar, prefs, true);
         await this.renderMessages(contentEl, messages, prefs);
         await this.renderDiscussionActions(contentEl, messages);
       }
@@ -1013,11 +1004,11 @@ class RelationshipSituationModal extends Modal {
     }
   }
 
-  renderColorPicker(container, prefs) {
+  renderColorPicker(container, prefs, compact = false) {
     const me = this.plugin.relationshipSession.user.id;
     const mine = prefs.find(p => p.user_id === me)?.accent_color || 'blue';
-    const wrap = container.createDiv({ cls: 'compass-color-picker' });
-    wrap.createSpan({ text: 'Мой цвет:' });
+    const wrap = container.createDiv({ cls: `compass-color-picker${compact ? ' is-compact' : ''}` });
+    if (!compact) wrap.createSpan({ text: 'Мой цвет:' });
     ['blue', 'green', 'purple', 'orange'].forEach(color => {
       const b = wrap.createEl('button', { cls: `compass-color-dot color-${color}${mine === color ? ' is-active' : ''}`, attr: { 'aria-label': color } });
       b.onclick = async () => {
@@ -1027,19 +1018,21 @@ class RelationshipSituationModal extends Modal {
         } catch (e) { new Notice(`Не удалось изменить цвет: ${e.message || e}`); }
       };
     });
-    const minePref = prefs.find(p => p.user_id === me);
-    const emailEnabled = Boolean(minePref?.email_notifications_enabled);
-    const emailButton = wrap.createEl('button', {
-      text: emailEnabled ? '📩 Email: вкл' : '📩 Email: выкл',
-      cls: `compass-email-toggle${emailEnabled ? ' is-active' : ''}`
-    });
-    emailButton.onclick = async () => {
-      try {
-        await this.plugin.setRelationshipEmailNotificationsEnabled(!emailEnabled);
-        new Notice(!emailEnabled ? 'Email-уведомления включены' : 'Email-уведомления выключены');
-        await this.render();
-      } catch (e) { new Notice(`Не удалось изменить email-уведомления: ${e.message || e}`); }
-    };
+    if (!compact) {
+      const minePref = prefs.find(p => p.user_id === me);
+      const emailEnabled = Boolean(minePref?.email_notifications_enabled);
+      const emailButton = wrap.createEl('button', {
+        text: emailEnabled ? '📩 Email: вкл' : '📩 Email: выкл',
+        cls: `compass-email-toggle${emailEnabled ? ' is-active' : ''}`
+      });
+      emailButton.onclick = async () => {
+        try {
+          await this.plugin.setRelationshipEmailNotificationsEnabled(!emailEnabled);
+          new Notice(!emailEnabled ? 'Email-уведомления включены' : 'Email-уведомления выключены');
+          await this.render();
+        } catch (e) { new Notice(`Не удалось изменить email-уведомления: ${e.message || e}`); }
+      };
+    }
   }
 
   async renderMessages(container, messages, prefs) {
@@ -1103,12 +1096,15 @@ class RelationshipSituationModal extends Modal {
 
     const composer = container.createDiv({ cls: 'compass-message-composer' });
     const textarea = composer.createEl('textarea', { attr: { placeholder: 'Продолжить обсуждение…' } });
-    const keyboardActions = composer.createDiv({ cls: 'compass-keyboard-actions' });
-    const dictate = keyboardActions.createEl('button', { text: '🎙️ Диктовать', cls: 'compass-dictate-button' });
-    if (this.cleanupDictation) this.cleanupDictation();
-    this.cleanupDictation = attachSpeechDictation(dictate, textarea, 'ru-RU');
-    const hideKeyboard = keyboardActions.createEl('button', { text: '⌄ Скрыть клавиатуру', cls: 'compass-hide-keyboard' });
-    hideKeyboard.onclick = () => blurActiveEditable();
+    const keepComposerVisible = () => {
+      [60, 180, 360, 650].forEach(delay => window.setTimeout(() => {
+        try { composer.scrollIntoView({ block: 'end', inline: 'nearest', behavior: 'auto' }); } catch (_) {}
+      }, delay));
+    };
+    textarea.addEventListener('focus', keepComposerVisible);
+    textarea.addEventListener('input', () => {
+      if (document.activeElement === textarea) keepComposerVisible();
+    });
     const actions = composer.createDiv({ cls: 'compass-section-actions' });
     const send = actions.createEl('button', { text: 'Отправить', cls: 'mod-cta' });
     send.onclick = async () => {

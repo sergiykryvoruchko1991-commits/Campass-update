@@ -1,9 +1,9 @@
 {
   "id": "compass-add",
   "name": "Compass",
-  "version": "2.2.10",
+  "version": "2.2.11",
   "minAppVersion": "1.5.0",
-  "description": "Compass 2.2.10: разрешено прямое обновление с Compass 2.1.0.",
+  "description": "Compass 2.2.11: стабилизация ввода текста и компактное обсуждение в «Отношениях».",
   "author": "OpenAI",
   "isDesktopOnly": false
 }

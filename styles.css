@@ -1123,3 +1123,103 @@
     padding: 10px 12px;
   }
 }
+
+
+/* Compass 2.2.11: stabilize Relationship composer on iPhone and simplify discussion UI. */
+.compass-discussion-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 18px 0 8px;
+  min-width: 0;
+}
+
+.compass-discussion-bar .compass-discussion-title {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.compass-discussion-bar .compass-color-picker {
+  margin: 0;
+  gap: 6px;
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+}
+
+.compass-color-picker.is-compact .compass-color-dot {
+  width: 20px;
+  min-width: 20px;
+  height: 20px;
+  min-height: 20px;
+  border-width: 1px;
+}
+
+.compass-color-picker.is-compact .compass-color-dot.is-active {
+  outline-width: 1px;
+  outline-offset: 2px;
+}
+
+/* Long relationship text should scroll inside the editor instead of disappearing behind iOS keyboard. */
+.compass-situation-editor .compass-situation-textarea,
+.compass-keyboard-safe-modal .compass-situation-textarea {
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch;
+}
+
+.compass-message-composer textarea {
+  box-sizing: border-box;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* When the iOS keyboard is open, keep the active editor compact and visible. */
+.compass-situation-editor.is-keyboard-open .compass-situation-textarea,
+.compass-keyboard-safe-modal .compass-situation-editor.is-keyboard-open .compass-situation-textarea {
+  min-height: 180px !important;
+  height: min(34vh, 260px) !important;
+  max-height: min(34vh, 260px) !important;
+  resize: none !important;
+}
+
+.compass-relationship-situation.is-keyboard-open .compass-message-composer,
+.compass-keyboard-safe-modal .compass-relationship-situation.is-keyboard-open .compass-message-composer {
+  position: sticky;
+  bottom: 6px;
+  z-index: 40;
+  padding: 8px 0 4px;
+  background: var(--background-primary);
+}
+
+.compass-relationship-situation.is-keyboard-open .compass-message-composer textarea,
+.compass-keyboard-safe-modal .compass-relationship-situation.is-keyboard-open .compass-message-composer textarea {
+  min-height: 150px !important;
+  height: min(30vh, 220px) !important;
+  max-height: min(30vh, 220px) !important;
+  resize: none !important;
+}
+
+@media (max-width: 500px) {
+  .compass-discussion-bar {
+    gap: 8px;
+  }
+
+  .compass-discussion-bar .compass-discussion-title {
+    font-size: .95rem;
+  }
+
+  .compass-color-picker.is-compact .compass-color-dot {
+    width: 18px;
+    min-width: 18px;
+    height: 18px;
+    min-height: 18px;
+  }
+
+  .compass-relationship-situation.is-keyboard-open,
+  .compass-situation-editor.is-keyboard-open {
+    padding-bottom: 12px !important;
+    scroll-padding-bottom: 24px !important;
+  }
+}
