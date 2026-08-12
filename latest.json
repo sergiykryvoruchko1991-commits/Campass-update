@@ -1,29 +1,29 @@
 {
-  "version": "2.2.11",
+  "version": "2.2.12",
   "minInstalledVersion": "2.1.0",
   "touchesUserData": false,
   "requiresSupabaseMigration": false,
   "releaseNotes": [
-    "Исправлена работа длинного текста над клавиатурой в разделе «Отношения» на iPhone.",
-    "Поле ответа удерживается в видимой зоне при открытой клавиатуре.",
-    "Убраны кнопки «Диктовать» и «Скрыть клавиатуру» из форм «Отношений».",
-    "Заголовок «Обсуждение» стал компактнее, а цветовые точки перенесены в одну строку с ним."
+    "На iPhone поле первоначальной позиции в «Отношениях» при открытой клавиатуре становится отдельной видимой областью над клавиатурой.",
+    "Поле ответа в обсуждении использует тот же мобильный режим и больше не должно уходить под клавиатуру.",
+    "Длинный текст прокручивается внутри самого поля, курсор и последние строки остаются в рабочей зоне.",
+    "Другие функции Compass в этом обновлении не изменялись."
   ],
   "files": [
     {
       "path": "main.js",
       "url": "https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/main.js",
-      "sha256": "1bfc64a5acc899d7e6e5362bcf6b366e17455741c60ba9d02723148660a431ff"
+      "sha256": "46b88b01769c1916cdcf276b5643133c6358ac4e5f528fd613d4a28d5336f5d9"
     },
     {
       "path": "styles.css",
       "url": "https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/styles.css",
-      "sha256": "778666271439a68a877c2f3c4efbced8f2c92401520d8671d3271335af064e3d"
+      "sha256": "123390646c74aaa7829cc7d4619ec19782a6b16a67729c446a374d8c261918d1"
     },
     {
       "path": "manifest.json",
       "url": "https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/manifest.json",
-      "sha256": "163796ec53358ae9c350cf410aac6042b85ccb8f168516e8ae5d6237924725f2"
+      "sha256": "10a8c671f3af2e422dce4d83754c90a08ddaa7ca3e58a5a7ac7efb83b8377eb2"
     }
   ]
 }

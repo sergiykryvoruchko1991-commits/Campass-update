@@ -1223,3 +1223,59 @@
     scroll-padding-bottom: 24px !important;
   }
 }
+
+
+/* Compass 2.2.12
+   iPhone relationship editor mode.
+   Previous attempts tried to scroll the modal above the keyboard. On iOS
+   WebView that is not reliable enough, so while typing we place the active
+   relationship textarea directly inside the visible viewport. */
+@media (max-width: 600px) {
+  .compass-situation-editor.is-keyboard-open .compass-relationship-mobile-editor:focus,
+  .compass-relationship-situation.is-keyboard-open .compass-relationship-mobile-editor:focus,
+  .compass-keyboard-safe-modal .compass-situation-editor.is-keyboard-open .compass-relationship-mobile-editor:focus,
+  .compass-keyboard-safe-modal .compass-relationship-situation.is-keyboard-open .compass-relationship-mobile-editor:focus {
+    position: fixed !important;
+    z-index: 10020 !important;
+
+    /* visualViewport height is written by attachMobileKeyboardAvoidance().
+       This makes the editor live in the area that remains above the keyboard. */
+    top: calc(env(safe-area-inset-top, 0px) + 58px) !important;
+    left: 14px !important;
+    right: 14px !important;
+    width: auto !important;
+
+    height: calc(var(--compass-vv-height, 420px) - env(safe-area-inset-top, 0px) - 92px) !important;
+    min-height: 170px !important;
+    max-height: calc(var(--compass-vv-height, 420px) - env(safe-area-inset-top, 0px) - 92px) !important;
+
+    box-sizing: border-box !important;
+    margin: 0 !important;
+    padding: 14px !important;
+    resize: none !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+
+    border: 1px solid var(--interactive-accent) !important;
+    border-radius: 12px !important;
+    background: var(--background-primary) !important;
+    color: var(--text-normal) !important;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, .28) !important;
+  }
+
+  /* The old sticky composer rules are intentionally neutralized while typing.
+     Only the textarea becomes the editor overlay. */
+  .compass-relationship-situation.is-keyboard-open .compass-message-composer,
+  .compass-keyboard-safe-modal .compass-relationship-situation.is-keyboard-open .compass-message-composer {
+    position: static !important;
+    z-index: auto !important;
+    padding: 0 !important;
+    background: transparent !important;
+  }
+
+  /* Keep the modal itself still while the fixed editor is active. */
+  .compass-situation-editor.is-keyboard-open,
+  .compass-relationship-situation.is-keyboard-open {
+    overflow: hidden !important;
+  }
+}

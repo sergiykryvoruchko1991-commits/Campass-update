@@ -1,7 +1,7 @@
 const { Plugin, Modal, Notice, ItemView, MarkdownView, moment, setIcon, Setting, PluginSettingTab, requestUrl } = require('obsidian');
 
 const VIEW_TYPE = 'compass-sidebar-view';
-const COMPASS_PLUGIN_VERSION = '2.2.11';
+const COMPASS_PLUGIN_VERSION = '2.2.12';
 const COMPASS_DATA_SCHEMA_VERSION = 3;
 
 const COMPASS_UPDATE_MANIFEST_URL = 'https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/latest.json';
@@ -775,7 +775,7 @@ class NewRelationshipSituationModal extends Modal {
     }
 
     const textarea = contentEl.createEl('textarea', {
-      cls: 'compass-situation-textarea',
+      cls: 'compass-situation-textarea compass-relationship-mobile-editor',
       attr: { placeholder: 'Пиши всё, что считаешь важным…' }
     });
     textarea.addEventListener('input', () => { this.text = textarea.value; });
@@ -842,7 +842,7 @@ class RelationshipEditTextModal extends Modal {
     this.cleanupKeyboardDismiss = attachMobileKeyboardDismiss(contentEl);
     this.cleanupKeyboardAvoidance = attachMobileKeyboardAvoidance(contentEl);
     contentEl.createEl('h2', { text: this.title });
-    const textarea = contentEl.createEl('textarea', { cls: 'compass-situation-textarea' });
+    const textarea = contentEl.createEl('textarea', { cls: 'compass-situation-textarea compass-relationship-mobile-editor' });
     textarea.value = this.value;
     textarea.addEventListener('input', () => { this.value = textarea.value; });
     const actions = contentEl.createDiv({ cls: 'compass-section-actions' });
@@ -1095,7 +1095,7 @@ class RelationshipSituationModal extends Modal {
     }
 
     const composer = container.createDiv({ cls: 'compass-message-composer' });
-    const textarea = composer.createEl('textarea', { attr: { placeholder: 'Продолжить обсуждение…' } });
+    const textarea = composer.createEl('textarea', { cls: 'compass-relationship-mobile-editor', attr: { placeholder: 'Продолжить обсуждение…' } });
     const keepComposerVisible = () => {
       [60, 180, 360, 650].forEach(delay => window.setTimeout(() => {
         try { composer.scrollIntoView({ block: 'end', inline: 'nearest', behavior: 'auto' }); } catch (_) {}

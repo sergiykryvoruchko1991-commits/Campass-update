@@ -1,9 +1,9 @@
 {
   "id": "compass-add",
   "name": "Compass",
-  "version": "2.2.11",
+  "version": "2.2.12",
   "minAppVersion": "1.5.0",
-  "description": "Compass 2.2.11: стабилизация ввода текста и компактное обсуждение в «Отношениях».",
+  "description": "Compass 2.2.12: отдельный мобильный режим редактора в «Отношениях» для iPhone.",
   "author": "OpenAI",
   "isDesktopOnly": false
 }
