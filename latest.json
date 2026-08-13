@@ -1,29 +1,30 @@
 {
-  "version": "2.2.14",
+  "version": "2.3.0",
   "minInstalledVersion": "2.1.0",
   "touchesUserData": false,
   "requiresSupabaseMigration": false,
   "releaseNotes": [
-    "В разделе «Отношения» встроенное поле ответа убрано.",
-    "Кнопка «Ответить» открывает отдельное окно ввода по тому же принципу, что и рабочее окно «Изменить».",
-    "После отправки отдельное окно закрывается, а обсуждение обновляется.",
-    "Другие функции Compass не изменялись."
+    "В боковом меню появился отдельный блок «Общее»: «Отношения» и «Календарь».",
+    "Добавлен общий календарь по месяцам с общим планом на каждый день.",
+    "Пункты календаря можно добавлять, изменять, отмечать выполненными и удалять; оба участника видят одни и те же данные.",
+    "Текст пунктов календаря шифруется тем же общим ключом, что и данные раздела «Отношения».",
+    "Один вход разблокирует весь блок «Общее» на 12 часов в текущем сеансе приложения."
   ],
   "files": [
     {
       "path": "main.js",
       "url": "https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/main.js",
-      "sha256": "d5b87c911c739c436efdae09dc1be3d0af0cf7ba06df99fda6c0c59aa32cee39"
+      "sha256": "59b349e11e4fcefe28379d2e1d7c43081c3f4f13c782c900ddbd0996a7b68764"
     },
     {
       "path": "styles.css",
       "url": "https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/styles.css",
-      "sha256": "263f5cc3f6613f7afde8d3d40373c56f3c2b11aa9ff5462f4057e014f345df04"
+      "sha256": "ef7080cccc3175f66a0b27a86f34ee8f874cb73c9bcb52d817dbc656ce4fc7e5"
     },
     {
       "path": "manifest.json",
       "url": "https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/manifest.json",
-      "sha256": "b1d48de7be98a546e15fc42488c870d8bccc3870b56dd6742cc4fd486d911b56"
+      "sha256": "14fbc440b8cb7c62b22994f79046f7943e3c4570e0d50600fbdb536a801be038"
     }
   ]
 }

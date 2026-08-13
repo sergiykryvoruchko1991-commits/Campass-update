@@ -1,7 +1,7 @@
 const { Plugin, Modal, Notice, ItemView, MarkdownView, moment, setIcon, Setting, PluginSettingTab, requestUrl } = require('obsidian');
 
 const VIEW_TYPE = 'compass-sidebar-view';
-const COMPASS_PLUGIN_VERSION = '2.2.14';
+const COMPASS_PLUGIN_VERSION = '2.3.0';
 const COMPASS_DATA_SCHEMA_VERSION = 3;
 
 const COMPASS_UPDATE_MANIFEST_URL = 'https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/latest.json';
@@ -1177,6 +1177,170 @@ class RelationshipSituationModal extends Modal {
   }
 }
 
+
+class SharedCalendarItemModal extends Modal {
+  constructor(app, plugin, dateString, onDone, existingItem = null, initialText = '') {
+    super(app);
+    this.plugin = plugin;
+    this.dateString = dateString;
+    this.onDone = onDone;
+    this.existingItem = existingItem;
+    this.value = initialText || '';
+    this.cleanupKeyboardDismiss = null;
+    this.cleanupKeyboardAvoidance = null;
+  }
+
+  onOpen() {
+    const { contentEl } = this;
+    this.cleanupKeyboardDismiss = attachMobileKeyboardDismiss(contentEl);
+    this.cleanupKeyboardAvoidance = attachMobileKeyboardAvoidance(contentEl);
+    contentEl.addClass('compass-shared-calendar-editor');
+    contentEl.createEl('h2', { text: this.existingItem ? 'Изменить план' : 'Добавить в план' });
+    contentEl.createEl('div', { text: moment(this.dateString, 'YYYY-MM-DD').format('D MMMM YYYY'), cls: 'compass-shared-calendar-editor-date' });
+
+    const textarea = contentEl.createEl('textarea', {
+      cls: 'compass-situation-textarea',
+      attr: { placeholder: 'Что нужно сделать?' }
+    });
+    textarea.value = this.value;
+    textarea.addEventListener('input', () => { this.value = textarea.value; });
+
+    const actions = contentEl.createDiv({ cls: 'compass-section-actions' });
+    actions.createEl('button', { text: 'Отмена' }).onclick = () => this.close();
+    const save = actions.createEl('button', { text: this.existingItem ? 'Сохранить' : 'Добавить', cls: 'mod-cta' });
+    save.onclick = async () => {
+      const value = this.value.trim();
+      if (!value) return new Notice('Напиши пункт плана');
+      save.disabled = true;
+      try {
+        if (this.existingItem) await this.plugin.updateSharedCalendarItem(this.existingItem.id, value);
+        else await this.plugin.addSharedCalendarItem(this.dateString, value);
+        this.close();
+        if (this.onDone) await this.onDone();
+      } catch (e) {
+        new Notice(`Не удалось сохранить: ${e.message || e}`);
+        save.disabled = false;
+      }
+    };
+    setTimeout(() => textarea.focus(), 80);
+  }
+
+  onClose() {
+    blurActiveEditable();
+    if (this.cleanupKeyboardAvoidance) this.cleanupKeyboardAvoidance();
+    if (this.cleanupKeyboardDismiss) this.cleanupKeyboardDismiss();
+    this.contentEl.empty();
+  }
+}
+
+class SharedCalendarModal extends Modal {
+  constructor(app, plugin) {
+    super(app);
+    this.plugin = plugin;
+    this.visibleMonth = moment().startOf('month');
+    this.selectedDate = moment().format('YYYY-MM-DD');
+  }
+
+  async onOpen() { await this.render(); }
+
+  async render() {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.addClass('compass-shared-calendar-modal');
+
+    const header = contentEl.createDiv({ cls: 'compass-shared-calendar-top' });
+    header.createEl('h2', { text: '📅 Общий календарь' });
+    const refresh = header.createEl('button', { text: '↻', attr: { 'aria-label': 'Обновить календарь' } });
+    refresh.onclick = () => this.render();
+
+    const loading = contentEl.createEl('p', { text: 'Загружаю календарь…', cls: 'setting-item-description' });
+    try {
+      const monthStart = this.visibleMonth.clone().startOf('month').format('YYYY-MM-DD');
+      const monthEnd = this.visibleMonth.clone().endOf('month').format('YYYY-MM-DD');
+      const items = await this.plugin.getSharedCalendarItems(monthStart, monthEnd);
+      loading.remove();
+
+      const itemsByDate = new Map();
+      for (const item of items) {
+        if (!itemsByDate.has(item.calendar_date)) itemsByDate.set(item.calendar_date, []);
+        itemsByDate.get(item.calendar_date).push(item);
+      }
+
+      const calendar = contentEl.createDiv({ cls: 'compass-shared-calendar-grid-wrap' });
+      const monthHeader = calendar.createDiv({ cls: 'compass-calendar-header' });
+      const prev = monthHeader.createEl('button', { cls: 'compass-calendar-nav', attr: { 'aria-label': 'Предыдущий месяц' } });
+      setIcon(prev, 'chevron-left');
+      prev.onclick = async () => { this.visibleMonth.subtract(1, 'month'); this.selectedDate = this.visibleMonth.clone().startOf('month').format('YYYY-MM-DD'); await this.render(); };
+      monthHeader.createEl('strong', { text: this.visibleMonth.format('MMMM YYYY') });
+      const next = monthHeader.createEl('button', { cls: 'compass-calendar-nav', attr: { 'aria-label': 'Следующий месяц' } });
+      setIcon(next, 'chevron-right');
+      next.onclick = async () => { this.visibleMonth.add(1, 'month'); this.selectedDate = this.visibleMonth.clone().startOf('month').format('YYYY-MM-DD'); await this.render(); };
+
+      const weekdays = calendar.createDiv({ cls: 'compass-weekdays' });
+      moment.localeData().weekdaysMin(true).forEach(day => weekdays.createSpan({ text: day }));
+      const grid = calendar.createDiv({ cls: 'compass-days-grid' });
+      const start = this.visibleMonth.clone().startOf('month').startOf('week');
+      const today = moment().format('YYYY-MM-DD');
+      for (let i = 0; i < 42; i += 1) {
+        const date = start.clone().add(i, 'day');
+        const ds = date.format('YYYY-MM-DD');
+        const button = grid.createEl('button', { text: String(date.date()), cls: 'compass-day-button compass-shared-calendar-day' });
+        if (date.month() !== this.visibleMonth.month()) button.addClass('is-outside-month');
+        if (ds === today) button.addClass('is-today');
+        if (ds === this.selectedDate) button.addClass('is-selected');
+        if ((itemsByDate.get(ds) || []).length) button.addClass('has-shared-items');
+        button.onclick = async () => {
+          this.selectedDate = ds;
+          if (date.month() !== this.visibleMonth.month()) this.visibleMonth = date.clone().startOf('month');
+          await this.render();
+        };
+      }
+
+      const dayItems = itemsByDate.get(this.selectedDate) || [];
+      const dayHeader = contentEl.createDiv({ cls: 'compass-shared-calendar-day-header' });
+      const dayTitle = dayHeader.createDiv();
+      dayTitle.createEl('strong', { text: moment(this.selectedDate, 'YYYY-MM-DD').format('D MMMM') });
+      dayTitle.createEl('small', { text: moment(this.selectedDate, 'YYYY-MM-DD').format('dddd') });
+      const add = dayHeader.createEl('button', { text: '＋ Добавить', cls: 'mod-cta' });
+      add.onclick = () => new SharedCalendarItemModal(this.app, this.plugin, this.selectedDate, () => this.render()).open();
+
+      const list = contentEl.createDiv({ cls: 'compass-shared-calendar-list' });
+      if (!dayItems.length) {
+        list.createEl('p', { text: 'На этот день общего плана пока нет.', cls: 'setting-item-description' });
+      }
+
+      const me = this.plugin.relationshipSession?.user?.id;
+      for (const item of dayItems) {
+        let decoded = '';
+        try { decoded = await this.plugin.decryptRelationshipText(item); }
+        catch (_) { decoded = 'Не удалось расшифровать запись'; }
+        const row = list.createDiv({ cls: `compass-shared-calendar-item${item.is_completed ? ' is-completed' : ''}` });
+        const check = row.createEl('button', { text: item.is_completed ? '☑' : '☐', cls: 'compass-shared-calendar-check', attr: { 'aria-label': item.is_completed ? 'Вернуть в план' : 'Отметить выполненным' } });
+        check.onclick = async () => {
+          try { await this.plugin.setSharedCalendarItemCompleted(item.id, !item.is_completed); await this.render(); }
+          catch (e) { new Notice(`Не удалось изменить: ${e.message || e}`); }
+        };
+        const body = row.createDiv({ cls: 'compass-shared-calendar-item-body' });
+        body.createDiv({ text: decoded, cls: 'compass-shared-calendar-item-text' });
+        body.createEl('small', { text: item.created_by === me ? 'Добавил(а): я' : 'Добавил(а): партнёр' });
+        const itemActions = row.createDiv({ cls: 'compass-shared-calendar-item-actions' });
+        const edit = itemActions.createEl('button', { text: '✎', attr: { 'aria-label': 'Изменить' } });
+        edit.onclick = () => new SharedCalendarItemModal(this.app, this.plugin, this.selectedDate, () => this.render(), item, decoded).open();
+        const remove = itemActions.createEl('button', { text: '×', attr: { 'aria-label': 'Удалить' } });
+        remove.onclick = async () => {
+          if (!window.confirm('Удалить этот пункт из общего календаря?')) return;
+          try { await this.plugin.deleteSharedCalendarItem(item.id); await this.render(); }
+          catch (e) { new Notice(`Не удалось удалить: ${e.message || e}`); }
+        };
+      }
+    } catch (e) {
+      loading.setText(`Не удалось открыть календарь: ${e.message || e}`);
+    }
+  }
+
+  onClose() { this.contentEl.empty(); }
+}
+
 class RelationshipsModal extends Modal {
   constructor(app, plugin) {
     super(app);
@@ -1384,6 +1548,7 @@ class CompassSettingTab extends PluginSettingTab {
       .setDesc('Удаляет пароль, access token и ключ шифрования из памяти приложения.')
       .addButton(button => button.setButtonText('Выйти').onClick(() => {
         this.plugin.relationshipSession = null;
+        this.plugin.sharedUnlockExpiresAt = 0;
         new Notice('Сеанс общего пространства завершён');
       }));
   }
@@ -1468,9 +1633,13 @@ class CompassSidebarView extends ItemView {
       this.addNavButton(journalNav, section.emoji, section.name, () => this.plugin.openTarget(`03 Журналы/${section.journal}.md`), () => this.plugin.manageSection(descriptor));
     });
 
+    this.addDivider(container, 'Общее');
+    const sharedNav = container.createDiv({ cls: 'compass-nav compass-shared-nav' });
+    this.addNavButton(sharedNav, '❤️', 'Отношения', () => this.plugin.openRelationships());
+    this.addNavButton(sharedNav, '📅', 'Календарь', () => this.plugin.openSharedCalendar());
+
     this.addDivider(container, 'Базы знаний');
     const libraryNav = container.createDiv({ cls: 'compass-nav' });
-    this.addNavButton(libraryNav, '❤️', 'Отношения', () => this.plugin.openRelationships());
     const libraryId = 'library:Книги и видео';
     if (!this.plugin.isBuiltinHidden(libraryId)) {
       const section = { source: 'builtin', builtinId: libraryId, type: 'library', emoji: '📚', name: 'Книги и видео', folder: '02 Книги и видео' };
@@ -1787,6 +1956,7 @@ module.exports = class CompassPlugin extends Plugin {
       email: data?.relationshipSettings?.email || ''
     };
     this.relationshipSession = null;
+    this.sharedUnlockExpiresAt = 0;
     this.updateSettings = {
       autoCheck: data?.updateSettings?.autoCheck !== false,
       lastCheckedAt: data?.updateSettings?.lastCheckedAt || null
@@ -1801,6 +1971,7 @@ module.exports = class CompassPlugin extends Plugin {
     this.addCommand({ id: 'compass-add-section', name: 'Добавить новый раздел', callback: () => this.openAddSection() });
     this.addCommand({ id: 'compass-open-today', name: 'Открыть сегодняшний день', callback: () => this.openDate(moment()) });
     this.addCommand({ id: 'compass-open-relationships', name: 'Открыть раздел Отношения', callback: () => this.openRelationships() });
+    this.addCommand({ id: 'compass-open-shared-calendar', name: 'Открыть общий календарь', callback: () => this.openSharedCalendar() });
     this.addSettingTab(new CompassSettingTab(this.app, this));
 
     this.registerMarkdownPostProcessor((element, context) => {
@@ -2089,16 +2260,30 @@ module.exports = class CompassPlugin extends Plugin {
     return Boolean(s.projectUrl && s.publishableKey && s.email);
   }
 
-  async openRelationships() {
+  sharedSessionIsUnlocked() {
+    return Boolean(this.relationshipSession?.accessToken && Date.now() < Number(this.sharedUnlockExpiresAt || 0));
+  }
+
+  ensureSharedSession(onReady) {
     if (!this.relationshipConfigured()) {
       new Notice('Сначала заполни Supabase URL, Publishable key и email в Настройки → Compass');
       return;
     }
-    if (!this.relationshipSession) {
-      new RelationshipSessionModal(this.app, this, () => new RelationshipsModal(this.app, this).open()).open();
+    if (this.sharedSessionIsUnlocked()) {
+      onReady();
       return;
     }
-    new RelationshipsModal(this.app, this).open();
+    this.relationshipSession = null;
+    this.sharedUnlockExpiresAt = 0;
+    new RelationshipSessionModal(this.app, this, onReady).open();
+  }
+
+  async openRelationships() {
+    this.ensureSharedSession(() => new RelationshipsModal(this.app, this).open());
+  }
+
+  async openSharedCalendar() {
+    this.ensureSharedSession(() => new SharedCalendarModal(this.app, this).open());
   }
 
   async supabaseRequest(path, options = {}, authenticated = true) {
@@ -2143,6 +2328,7 @@ module.exports = class CompassPlugin extends Plugin {
       throw new Error('Пользователь не добавлен в общее пространство');
     }
     this.relationshipSession.spaceId = memberships[0].space_id;
+    this.sharedUnlockExpiresAt = Date.now() + (12 * 60 * 60 * 1000);
   }
 
   async deriveRelationshipKey(secret, salt) {
@@ -2358,6 +2544,61 @@ module.exports = class CompassPlugin extends Plugin {
       // Email is intentionally non-blocking: a mail outage must never prevent the conversation itself.
       console.warn('Compass relationship email unavailable', e);
     }
+  }
+
+  async getSharedCalendarItems(dateFrom, dateTo) {
+    const spaceId = this.relationshipSession?.spaceId;
+    if (!spaceId) throw new Error('Нет активного общего пространства');
+    const fields = 'id,space_id,calendar_date,created_by,encrypted_content,encryption_iv,is_completed,created_at,updated_at';
+    const path = `/rest/v1/shared_calendar_items?select=${fields}&space_id=eq.${encodeURIComponent(spaceId)}&calendar_date=gte.${encodeURIComponent(dateFrom)}&calendar_date=lte.${encodeURIComponent(dateTo)}&order=calendar_date.asc,created_at.asc`;
+    const rows = await this.supabaseRequest(path);
+    return Array.isArray(rows) ? rows : [];
+  }
+
+  async addSharedCalendarItem(dateString, text) {
+    const session = this.relationshipSession;
+    if (!session?.spaceId || !session?.user?.id) throw new Error('Нет активного общего пространства');
+    const encrypted = await this.encryptRelationshipText(text);
+    await this.supabaseRequest('/rest/v1/shared_calendar_items', {
+      method: 'POST',
+      headers: { Prefer: 'return=minimal' },
+      body: JSON.stringify({
+        space_id: session.spaceId,
+        calendar_date: dateString,
+        created_by: session.user.id,
+        encrypted_content: encrypted.encrypted_content,
+        encryption_iv: encrypted.encryption_iv,
+        is_completed: false
+      })
+    });
+  }
+
+  async updateSharedCalendarItem(itemId, text) {
+    const encrypted = await this.encryptRelationshipText(text);
+    await this.supabaseRequest(`/rest/v1/shared_calendar_items?id=eq.${encodeURIComponent(itemId)}`, {
+      method: 'PATCH',
+      headers: { Prefer: 'return=minimal' },
+      body: JSON.stringify({
+        encrypted_content: encrypted.encrypted_content,
+        encryption_iv: encrypted.encryption_iv,
+        updated_at: new Date().toISOString()
+      })
+    });
+  }
+
+  async setSharedCalendarItemCompleted(itemId, completed) {
+    await this.supabaseRequest(`/rest/v1/shared_calendar_items?id=eq.${encodeURIComponent(itemId)}`, {
+      method: 'PATCH',
+      headers: { Prefer: 'return=minimal' },
+      body: JSON.stringify({ is_completed: Boolean(completed), updated_at: new Date().toISOString() })
+    });
+  }
+
+  async deleteSharedCalendarItem(itemId) {
+    await this.supabaseRequest(`/rest/v1/shared_calendar_items?id=eq.${encodeURIComponent(itemId)}`, {
+      method: 'DELETE',
+      headers: { Prefer: 'return=minimal' }
+    });
   }
 
   async relationshipRpc(name, args) {

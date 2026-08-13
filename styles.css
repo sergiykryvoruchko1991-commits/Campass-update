@@ -1355,3 +1355,158 @@
     flex-wrap: wrap;
   }
 }
+
+
+/* Compass 2.3.0: shared space + shared calendar */
+.compass-shared-nav {
+  margin-bottom: 2px;
+}
+
+.compass-shared-calendar-modal,
+.compass-shared-calendar-editor {
+  max-width: 760px;
+}
+
+.compass-shared-calendar-top,
+.compass-shared-calendar-day-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.compass-shared-calendar-top h2 {
+  margin: 0;
+}
+
+.compass-shared-calendar-grid-wrap {
+  margin: 14px 0 18px;
+  padding: 10px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 12px;
+  background: var(--background-secondary);
+}
+
+.compass-shared-calendar-day.is-selected:not(.is-today) {
+  box-shadow: inset 0 0 0 2px var(--interactive-accent);
+  font-weight: 700;
+}
+
+.compass-shared-calendar-day.has-shared-items::after {
+  content: '';
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--interactive-accent);
+  left: calc(50% - 2.5px);
+  bottom: 2px;
+}
+
+.compass-shared-calendar-day.is-today.has-shared-items::after {
+  background: var(--text-on-accent);
+}
+
+.compass-shared-calendar-day-header {
+  margin: 6px 0 10px;
+}
+
+.compass-shared-calendar-day-header > div:first-child {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-transform: capitalize;
+}
+
+.compass-shared-calendar-day-header small,
+.compass-shared-calendar-item-body small,
+.compass-shared-calendar-editor-date {
+  color: var(--text-muted);
+  font-size: .78rem;
+}
+
+.compass-shared-calendar-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.compass-shared-calendar-item {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: start;
+  padding: 9px 2px;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.compass-shared-calendar-item:last-child {
+  border-bottom: 0;
+}
+
+.compass-shared-calendar-check {
+  width: 32px;
+  min-width: 32px;
+  padding: 4px;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  font-size: 1.15rem;
+}
+
+.compass-shared-calendar-item-body {
+  min-width: 0;
+}
+
+.compass-shared-calendar-item-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.42;
+}
+
+.compass-shared-calendar-item.is-completed .compass-shared-calendar-item-text {
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+
+.compass-shared-calendar-item-actions {
+  display: flex;
+  gap: 3px;
+}
+
+.compass-shared-calendar-item-actions button {
+  min-width: 30px;
+  padding: 4px 7px;
+}
+
+.compass-shared-calendar-editor-date {
+  margin: -4px 0 10px;
+  text-transform: capitalize;
+}
+
+.compass-shared-calendar-editor .compass-situation-textarea {
+  min-height: 32vh;
+  max-height: 52vh;
+  overflow-y: auto;
+}
+
+@media (max-width: 500px) {
+  .compass-shared-calendar-modal,
+  .compass-shared-calendar-editor {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .compass-shared-calendar-day-header {
+    align-items: flex-end;
+  }
+
+  .compass-shared-calendar-item {
+    grid-template-columns: 30px minmax(0, 1fr) auto;
+    gap: 6px;
+  }
+
+  .compass-shared-calendar-item-actions {
+    flex-direction: column;
+  }
+}
