@@ -1,20 +1,19 @@
 {
-  "version": "2.3.0",
+  "version": "2.3.1",
   "minInstalledVersion": "2.1.0",
   "touchesUserData": false,
   "requiresSupabaseMigration": false,
   "releaseNotes": [
-    "В боковом меню появился отдельный блок «Общее»: «Отношения» и «Календарь».",
-    "Добавлен общий календарь по месяцам с общим планом на каждый день.",
-    "Пункты календаря можно добавлять, изменять, отмечать выполненными и удалять; оба участника видят одни и те же данные.",
-    "Текст пунктов календаря шифруется тем же общим ключом, что и данные раздела «Отношения».",
-    "Один вход разблокирует весь блок «Общее» на 12 часов в текущем сеансе приложения."
+    "После успешного входа блок «Общее» остаётся разблокированным 12 часов.",
+    "Повторное открытие «Отношений» и «Календаря» в течение 12 часов больше не должно запрашивать пароль.",
+    "12-часовой вход восстанавливается и после перезапуска Obsidian через refresh token Supabase.",
+    "Пароль пользователя не сохраняется. Refresh token и ключ шифрования временно хранятся в Obsidian SecretStorage; по истечении 12 часов или после кнопки «Выйти» кеш очищается."
   ],
   "files": [
     {
       "path": "main.js",
       "url": "https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/main.js",
-      "sha256": "59b349e11e4fcefe28379d2e1d7c43081c3f4f13c782c900ddbd0996a7b68764"
+      "sha256": "f6664cc60ca38829462f503ae9a02f6d1ac1f57c9527cc2209728f77806c5ac1"
     },
     {
       "path": "styles.css",
@@ -24,7 +23,7 @@
     {
       "path": "manifest.json",
       "url": "https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/manifest.json",
-      "sha256": "14fbc440b8cb7c62b22994f79046f7943e3c4570e0d50600fbdb536a801be038"
+      "sha256": "184e11b882c8d2b551344921e33bdebd9434f5cb1c90a6fd09c8eacd9fa18744"
     }
   ]
 }

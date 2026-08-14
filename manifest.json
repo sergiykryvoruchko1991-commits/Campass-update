@@ -1,9 +1,9 @@
 {
   "id": "compass-add",
   "name": "Compass",
-  "version": "2.3.0",
+  "version": "2.3.1",
   "minAppVersion": "1.5.0",
-  "description": "Compass 2.3.0: отдельный блок «Общее» и зашифрованный общий календарь для двух участников.",
+  "description": "Compass 2.3.1: общий блок запоминает вход на 12 часов между повторными открытиями и перезапусками Obsidian.",
   "author": "OpenAI",
   "isDesktopOnly": false
 }

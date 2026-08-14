@@ -1,11 +1,12 @@
 const { Plugin, Modal, Notice, ItemView, MarkdownView, moment, setIcon, Setting, PluginSettingTab, requestUrl } = require('obsidian');
 
 const VIEW_TYPE = 'compass-sidebar-view';
-const COMPASS_PLUGIN_VERSION = '2.3.0';
+const COMPASS_PLUGIN_VERSION = '2.3.1';
 const COMPASS_DATA_SCHEMA_VERSION = 3;
 
 const COMPASS_UPDATE_MANIFEST_URL = 'https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/latest.json';
 const COMPASS_UPDATE_ALLOWED_FILES = ['main.js', 'styles.css', 'manifest.json'];
+const COMPASS_SHARED_SESSION_SECRET_ID = 'compass-shared-session-v1';
 
 function compareVersions(a, b) {
   const pa = String(a || '0').split('.').map(n => parseInt(n, 10) || 0);
@@ -1547,8 +1548,7 @@ class CompassSettingTab extends PluginSettingTab {
       .setName('Завершить текущий сеанс')
       .setDesc('Удаляет пароль, access token и ключ шифрования из памяти приложения.')
       .addButton(button => button.setButtonText('Выйти').onClick(() => {
-        this.plugin.relationshipSession = null;
-        this.plugin.sharedUnlockExpiresAt = 0;
+        this.plugin.clearSharedSessionCache();
         new Notice('Сеанс общего пространства завершён');
       }));
   }
@@ -1956,7 +1956,7 @@ module.exports = class CompassPlugin extends Plugin {
       email: data?.relationshipSettings?.email || ''
     };
     this.relationshipSession = null;
-    this.sharedUnlockExpiresAt = 0;
+    this.sharedUnlockExpiresAt = Number(data?.sharedUnlockExpiresAt || 0);
     this.updateSettings = {
       autoCheck: data?.updateSettings?.autoCheck !== false,
       lastCheckedAt: data?.updateSettings?.lastCheckedAt || null
@@ -2121,6 +2121,7 @@ module.exports = class CompassPlugin extends Plugin {
       hiddenBuiltins: this.hiddenBuiltins,
       archivedSections: this.archivedSections,
       relationshipSettings: this.relationshipSettings,
+      sharedUnlockExpiresAt: Number(this.sharedUnlockExpiresAt || 0),
       updateSettings: this.updateSettings || { autoCheck: true, lastCheckedAt: null }
     });
   }
@@ -2261,29 +2262,136 @@ module.exports = class CompassPlugin extends Plugin {
   }
 
   sharedSessionIsUnlocked() {
-    return Boolean(this.relationshipSession?.accessToken && Date.now() < Number(this.sharedUnlockExpiresAt || 0));
+    return Boolean(
+      this.relationshipSession?.accessToken &&
+      this.relationshipSession?.encryptionSecret &&
+      Date.now() < Number(this.sharedUnlockExpiresAt || 0)
+    );
   }
 
-  ensureSharedSession(onReady) {
+  clearSharedSessionCache() {
+    this.relationshipSession = null;
+    this.sharedUnlockExpiresAt = 0;
+    try {
+      if (this.app?.secretStorage?.setSecret) {
+        this.app.secretStorage.setSecret(COMPASS_SHARED_SESSION_SECRET_ID, '');
+      }
+    } catch (e) {
+      console.warn('Compass: cannot clear shared session secret', e);
+    }
+    this.saveCompassData().catch(() => {});
+  }
+
+  saveSharedSessionCache(refreshToken, encryptionSecret) {
+    if (!refreshToken || !encryptionSecret) return;
+    try {
+      if (!this.app?.secretStorage?.setSecret) return;
+      this.app.secretStorage.setSecret(
+        COMPASS_SHARED_SESSION_SECRET_ID,
+        JSON.stringify({
+          refreshToken,
+          encryptionSecret
+        })
+      );
+    } catch (e) {
+      console.warn('Compass: cannot persist shared session secret', e);
+    }
+  }
+
+  getSharedSessionCache() {
+    try {
+      if (!this.app?.secretStorage?.getSecret) return null;
+      const raw = this.app.secretStorage.getSecret(COMPASS_SHARED_SESSION_SECRET_ID);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (!parsed?.refreshToken || !parsed?.encryptionSecret) return null;
+      return parsed;
+    } catch (e) {
+      console.warn('Compass: cannot read shared session secret', e);
+      return null;
+    }
+  }
+
+  async restoreSharedSessionFromCache() {
+    const expiresAt = Number(this.sharedUnlockExpiresAt || 0);
+    if (!expiresAt || Date.now() >= expiresAt) {
+      this.clearSharedSessionCache();
+      return false;
+    }
+
+    const cached = this.getSharedSessionCache();
+    if (!cached) return false;
+
+    try {
+      const auth = await this.supabaseRequest('/auth/v1/token?grant_type=refresh_token', {
+        method: 'POST',
+        body: JSON.stringify({ refresh_token: cached.refreshToken })
+      }, false);
+
+      if (!auth?.access_token || !auth?.user?.id) throw new Error('Не удалось восстановить сеанс');
+
+      this.relationshipSession = {
+        accessToken: auth.access_token,
+        refreshToken: auth.refresh_token || cached.refreshToken,
+        user: auth.user,
+        encryptionSecret: cached.encryptionSecret
+      };
+
+      const memberships = await this.supabaseRequest(
+        `/rest/v1/space_members?select=space_id,user_id&user_id=eq.${encodeURIComponent(auth.user.id)}`
+      );
+      if (!Array.isArray(memberships) || !memberships.length) {
+        throw new Error('Пользователь не добавлен в общее пространство');
+      }
+
+      this.relationshipSession.spaceId = memberships[0].space_id;
+
+      // Supabase rotates refresh tokens. Store the newest token without
+      // extending the original 12-hour Compass unlock window.
+      this.saveSharedSessionCache(
+        this.relationshipSession.refreshToken,
+        cached.encryptionSecret
+      );
+      return true;
+    } catch (e) {
+      console.warn('Compass: shared session restore failed', e);
+      this.clearSharedSessionCache();
+      return false;
+    }
+  }
+
+  async ensureSharedSession(onReady) {
     if (!this.relationshipConfigured()) {
       new Notice('Сначала заполни Supabase URL, Publishable key и email в Настройки → Compass');
       return;
     }
+
     if (this.sharedSessionIsUnlocked()) {
       onReady();
       return;
     }
+
+    if (Date.now() < Number(this.sharedUnlockExpiresAt || 0)) {
+      const restored = await this.restoreSharedSessionFromCache();
+      if (restored) {
+        onReady();
+        return;
+      }
+    }
+
     this.relationshipSession = null;
-    this.sharedUnlockExpiresAt = 0;
+    if (Date.now() >= Number(this.sharedUnlockExpiresAt || 0)) {
+      this.clearSharedSessionCache();
+    }
     new RelationshipSessionModal(this.app, this, onReady).open();
   }
 
   async openRelationships() {
-    this.ensureSharedSession(() => new RelationshipsModal(this.app, this).open());
+    await this.ensureSharedSession(() => new RelationshipsModal(this.app, this).open());
   }
 
   async openSharedCalendar() {
-    this.ensureSharedSession(() => new SharedCalendarModal(this.app, this).open());
+    await this.ensureSharedSession(() => new SharedCalendarModal(this.app, this).open());
   }
 
   async supabaseRequest(path, options = {}, authenticated = true) {
@@ -2329,6 +2437,8 @@ module.exports = class CompassPlugin extends Plugin {
     }
     this.relationshipSession.spaceId = memberships[0].space_id;
     this.sharedUnlockExpiresAt = Date.now() + (12 * 60 * 60 * 1000);
+    this.saveSharedSessionCache(this.relationshipSession.refreshToken, encryptionSecret);
+    await this.saveCompassData();
   }
 
   async deriveRelationshipKey(secret, salt) {
