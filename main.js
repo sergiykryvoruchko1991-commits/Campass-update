@@ -1,7 +1,7 @@
 const { Plugin, Modal, Notice, ItemView, MarkdownView, moment, setIcon, Setting, PluginSettingTab, requestUrl } = require('obsidian');
 
 const VIEW_TYPE = 'compass-sidebar-view';
-const COMPASS_PLUGIN_VERSION = '2.3.3';
+const COMPASS_PLUGIN_VERSION = '2.3.4';
 const COMPASS_DATA_SCHEMA_VERSION = 3;
 
 const COMPASS_UPDATE_MANIFEST_URL = 'https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/latest.json';
@@ -3439,4 +3439,72 @@ CompassPlugin232.prototype.reconcileTopicJournals232 = async function(file) {
 CompassPlugin232.prototype.reconcileAllTopicJournals232 = async function() {
   const files = this.app.vault.getMarkdownFiles().filter(file => String(file.path || '').startsWith('01 Дни/'));
   for (const file of files) await this.reconcileTopicJournals232(file);
+};
+
+
+/* Compass 2.3.4: reliable Topic aliases for Idea/Car journals on mobile. */
+const CompassPlugin234 = module.exports;
+
+CompassPlugin234.prototype.extractDailyTopic232 = function(content, heading) {
+  const lines = String(content || '').replace(/\r\n?/g, '\n').split('\n');
+  const wanted = `## ${String(heading || '').trim()}`;
+  let start = -1;
+  for (let i = 0; i < lines.length; i += 1) {
+    if (lines[i].trim() === wanted) { start = i + 1; break; }
+  }
+  if (start < 0) return null;
+  for (let i = start; i < lines.length; i += 1) {
+    const raw = lines[i];
+    if (/^##\s+/.test(raw.trim())) break;
+    const plain = raw.replace(/\*\*/g, '').trim();
+    const match = plain.match(/^Тема\s*:\s*(.*)$/i);
+    if (match) return String(match[1] || '').trim();
+  }
+  return '';
+};
+
+const compass234BaseOpenTarget = CompassPlugin234.prototype.openTarget;
+CompassPlugin234.prototype.openTarget = async function(target) {
+  if (target === '03 Журналы/Машина.md' || target === '03 Журналы/Идеи.md') {
+    try { await this.reconcileAllTopicJournals232(); }
+    catch (e) { console.warn('Compass 2.3.4 journal refresh', e); }
+  }
+  return compass234BaseOpenTarget.call(this, target);
+};
+
+const compass234BaseAddEntry = CompassPlugin234.prototype.addEntry;
+CompassPlugin234.prototype.addEntry = async function(type) {
+  if (!type || (type.key !== 'idea' && type.key !== 'car')) {
+    return compass234BaseAddEntry.call(this, type);
+  }
+
+  let view = this.app.workspace.getActiveViewOfType(MarkdownView);
+  let file = view && view.file && view.file.path.startsWith('01 Дни/') ? view.file : null;
+  if (!file) file = await this.ensureDate(moment());
+
+  await this.app.workspace.getLeaf(false).openFile(file);
+  view = this.app.workspace.getActiveViewOfType(MarkdownView);
+  const date = file.basename;
+  const heading = type.label;
+  const starter = type.key === 'idea'
+    ? '**Тема:** '
+    : '**Тема:** \n**Пробег:** ';
+  const block = `\n## ${heading}\n\n${starter}`;
+
+  if (view && view.file && view.file.path === file.path) {
+    const editor = view.editor;
+    editor.setCursor(editor.lineCount(), 0);
+    editor.replaceSelection(block);
+    if (type.key === 'car') {
+      editor.setCursor({ line: Math.max(0, editor.lineCount() - 2), ch: '**Тема:** '.length });
+    } else {
+      editor.setCursor({ line: Math.max(0, editor.lineCount() - 1), ch: '**Тема:** '.length });
+    }
+    editor.focus();
+  } else {
+    await this.app.vault.append(file, block);
+  }
+
+  if (type.journal) await this.appendJournal(type.journal, date, heading, file.path);
+  new Notice(`Добавлено: ${type.label}`);
 };
