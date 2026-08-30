@@ -1,7 +1,7 @@
 const { Plugin, Modal, Notice, ItemView, MarkdownView, moment, setIcon, Setting, PluginSettingTab, requestUrl } = require('obsidian');
 
 const VIEW_TYPE = 'compass-sidebar-view';
-const COMPASS_PLUGIN_VERSION = '2.3.2';
+const COMPASS_PLUGIN_VERSION = '2.3.3';
 const COMPASS_DATA_SCHEMA_VERSION = 3;
 
 const COMPASS_UPDATE_MANIFEST_URL = 'https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/latest.json';
@@ -3412,16 +3412,20 @@ CompassPlugin232.prototype.reconcileTopicJournal232 = async function(file, journ
   if (!journalFile) journalFile = await this.app.vault.create(journalPath, `# ${journal}\\n\\n`);
   const daily = await this.app.vault.read(file);
   const topic = this.extractDailyTopic232(daily, heading);
-  const target = file.path.replace(/\\.md$/, '');
+  const target = file.path.replace(/\.md$/, '');
   const escapedTarget = target.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const escapedHeading = heading.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const lineRe = new RegExp(`^- \\[\\[${escapedTarget}#${escapedHeading}\\|[^\\]]+\\]\\]\\n?`, 'gm');
   const original = await this.app.vault.read(journalFile);
-  let updated = original.replace(lineRe, '');
+  // 2.3.3 repairs journals polluted by 2.3.2, where literal \\n text was written instead of real new lines.
+  let updated = original.replace(/\\n(?=- \[\[)/g, '\n');
+  const targetWithOptionalMd = `${escapedTarget}(?:\\.md)?`;
+  const cleanupRe = new RegExp(`^- \\[\\[${targetWithOptionalMd}#${escapedHeading}\\|[^\\]]+\\]\\]\\n?`, 'gm');
+  updated = updated.replace(cleanupRe, '');
   if (topic !== null) {
     const alias = `${formatJournalDate(file.basename)} — ${topic || heading}`;
-    const line = `- [[${target}#${heading}|${alias}]]\\n`;
-    if (!updated.endsWith('\\n')) updated += '\\n';
+    const line = `- [[${target}#${heading}|${alias}]]\n`;
+    if (!updated.endsWith('\n')) updated += '\n';
     updated += line;
   }
   if (updated !== original) await this.app.vault.modify(journalFile, updated);

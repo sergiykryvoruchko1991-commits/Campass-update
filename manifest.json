@@ -1,9 +1,9 @@
 {
   "id": "compass-add",
   "name": "Compass",
-  "version": "2.3.2",
+  "version": "2.3.3",
   "minAppVersion": "1.5.0",
-  "description": "Compass 2.3.2: темы для «Идей» и «Машины» в дневных заметках и понятные названия в журналах.",
+  "description": "Compass 2.3.3: исправление переносов строк и дублей в журналах «Идеи» и «Машина».",
   "author": "OpenAI",
   "isDesktopOnly": false
 }

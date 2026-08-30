@@ -1,19 +1,19 @@
 {
-  "version": "2.3.2",
-  "minInstalledVersion": "2.3.1",
+  "version": "2.3.3",
+  "minInstalledVersion": "2.3.2",
   "touchesUserData": false,
   "requiresSupabaseMigration": false,
   "releaseNotes": [
-    "В блоке «Идея» сразу появляется поле «Тема».",
-    "В блоке «Машина» сразу появляются поля «Тема» и «Пробег».",
-    "В журналах «Идеи» и «Машина» ссылка показывает дату и указанную тему.",
-    "В «Отношениях» поле названия темы сокращено до «Тема»; список сохраняет дату и тему."
+    "Исправлены буквальные символы \\n в журналах «Идеи» и «Машина».",
+    "Исправлено распознавание ссылок дневных заметок, из-за которого появлялись дубли.",
+    "При первом запуске 2.3.3 уже созданные некорректные строки автоматически приводятся к нормальному виду.",
+    "Логика «Тема» и «Пробег» из 2.3.2 сохранена."
   ],
   "files": [
     {
       "path": "main.js",
       "url": "https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/main.js",
-      "sha256": "2b7e1e44899329f79d3e01a263561fa407c6cc604055438eb0a86b8fad8747cb"
+      "sha256": "f1960936c3d9b00377a2fa6bfbdfeb7c9c85d146b5776407697558f43c1ef5ac"
     },
     {
       "path": "styles.css",
@@ -23,7 +23,7 @@
     {
       "path": "manifest.json",
       "url": "https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/manifest.json",
-      "sha256": "3dba04fbe659e030cbd68f447120c6d7a2b0411d86843dacd6e37f765bb3fb00"
+      "sha256": "1614b6c2a11c2cf1099e6cff870dafe468aa5dafb056ab16c10ed0a4535cba1f"
     }
   ]
 }
