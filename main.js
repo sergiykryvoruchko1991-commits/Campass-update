@@ -1,7 +1,7 @@
 const { Plugin, Modal, Notice, ItemView, MarkdownView, moment, setIcon, Setting, PluginSettingTab, requestUrl } = require('obsidian');
 
 const VIEW_TYPE = 'compass-sidebar-view';
-const COMPASS_PLUGIN_VERSION = '2.3.1';
+const COMPASS_PLUGIN_VERSION = '2.3.2';
 const COMPASS_DATA_SCHEMA_VERSION = 3;
 
 const COMPASS_UPDATE_MANIFEST_URL = 'https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/latest.json';
@@ -767,10 +767,9 @@ class NewRelationshipSituationModal extends Modal {
 
     if (!this.existingSituation) {
       new Setting(contentEl)
-        .setName('Название темы')
-        .setDesc('Например: Отпуск, Бюджет, Покупка машины. Название также шифруется.')
+        .setName('Тема')
         .addText(text => {
-          text.setPlaceholder('Название темы');
+          text.setPlaceholder('Коротко: о чём эта тема');
           text.onChange(value => { this.title = value.trim(); });
         });
     }
@@ -792,7 +791,7 @@ class NewRelationshipSituationModal extends Modal {
     const finish = actions.createEl('button', { text: 'Завершить 🔒', cls: 'mod-cta' });
     finish.onclick = async () => {
       if (!this.existingSituation && !this.title) {
-        new Notice('Введите название темы');
+        new Notice('Введите тему');
         return;
       }
       if (!this.text.trim()) {
@@ -3031,7 +3030,10 @@ module.exports = class CompassPlugin extends Plugin {
     view = this.app.workspace.getActiveViewOfType(MarkdownView);
     const date = file.basename;
     const heading = type.label;
-    const block = `\n## ${heading}\n\n`;
+    let starter = '';
+    if (type.key === 'idea') starter = '**Тема:** ';
+    else if (type.key === 'car') starter = '**Тема:** \n**Пробег:** ';
+    const block = `\n## ${heading}\n\n${starter}`;
 
     if (view && view.file && view.file.path === file.path) {
       const editor = view.editor;
@@ -3370,4 +3372,67 @@ CompassPlugin222.prototype.onload = async function() {
   this.app.workspace.onLayoutReady(() => {
     window.setTimeout(() => this.formatDailyGreetings223().catch(e => console.warn('Compass greeting migration', e)), 1200);
   });
+};
+
+
+/* Compass 2.3.2: explicit topics for Idea/Car daily blocks and journal aliases. */
+const CompassPlugin232 = module.exports;
+const compass232BaseOnload = CompassPlugin232.prototype.onload;
+CompassPlugin232.prototype.onload = async function() {
+  await compass232BaseOnload.call(this);
+  this._topicJournalTimers232 = new Map();
+  this.registerEvent(this.app.vault.on('modify', file => {
+    if (!file || file.extension !== 'md' || !String(file.path || '').startsWith('01 Дни/')) return;
+    const key = file.path;
+    const previous = this._topicJournalTimers232.get(key);
+    if (previous) window.clearTimeout(previous);
+    const timer = window.setTimeout(() => {
+      this._topicJournalTimers232.delete(key);
+      this.reconcileTopicJournals232(file).catch(e => console.warn('Compass 2.3.2 topic journal sync', e));
+    }, 650);
+    this._topicJournalTimers232.set(key, timer);
+  }));
+  window.setTimeout(() => this.reconcileAllTopicJournals232().catch(e => console.warn('Compass 2.3.2 initial topic journal sync', e)), 1800);
+};
+
+CompassPlugin232.prototype.extractDailyTopic232 = function(content, heading) {
+  const escaped = String(heading).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const re = new RegExp(`(?:^|\\n)##\\s+${escaped}\\s*\\n([\\s\\S]*?)(?=\\n##\\s+|$)`);
+  const match = String(content || '').match(re);
+  if (!match) return null;
+  const body = match[1] || '';
+  const topic = body.match(/^\\s*(?:\\*\\*)?Тема:(?:\\*\\*)?\\s*(.*?)\\s*$/mi);
+  return topic ? String(topic[1] || '').trim() : '';
+};
+
+CompassPlugin232.prototype.reconcileTopicJournal232 = async function(file, journal, heading) {
+  if (!file || !file.path || !file.basename) return;
+  const journalPath = `03 Журналы/${journal}.md`;
+  let journalFile = this.app.vault.getAbstractFileByPath(journalPath);
+  if (!journalFile) journalFile = await this.app.vault.create(journalPath, `# ${journal}\\n\\n`);
+  const daily = await this.app.vault.read(file);
+  const topic = this.extractDailyTopic232(daily, heading);
+  const target = file.path.replace(/\\.md$/, '');
+  const escapedTarget = target.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const escapedHeading = heading.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const lineRe = new RegExp(`^- \\[\\[${escapedTarget}#${escapedHeading}\\|[^\\]]+\\]\\]\\n?`, 'gm');
+  const original = await this.app.vault.read(journalFile);
+  let updated = original.replace(lineRe, '');
+  if (topic !== null) {
+    const alias = `${formatJournalDate(file.basename)} — ${topic || heading}`;
+    const line = `- [[${target}#${heading}|${alias}]]\\n`;
+    if (!updated.endsWith('\\n')) updated += '\\n';
+    updated += line;
+  }
+  if (updated !== original) await this.app.vault.modify(journalFile, updated);
+};
+
+CompassPlugin232.prototype.reconcileTopicJournals232 = async function(file) {
+  await this.reconcileTopicJournal232(file, 'Идеи', '💡 Идея');
+  await this.reconcileTopicJournal232(file, 'Машина', '🚗 Машина');
+};
+
+CompassPlugin232.prototype.reconcileAllTopicJournals232 = async function() {
+  const files = this.app.vault.getMarkdownFiles().filter(file => String(file.path || '').startsWith('01 Дни/'));
+  for (const file of files) await this.reconcileTopicJournals232(file);
 };

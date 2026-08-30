@@ -1,19 +1,19 @@
 {
-  "version": "2.3.1",
-  "minInstalledVersion": "2.1.0",
+  "version": "2.3.2",
+  "minInstalledVersion": "2.3.1",
   "touchesUserData": false,
   "requiresSupabaseMigration": false,
   "releaseNotes": [
-    "После успешного входа блок «Общее» остаётся разблокированным 12 часов.",
-    "Повторное открытие «Отношений» и «Календаря» в течение 12 часов больше не должно запрашивать пароль.",
-    "12-часовой вход восстанавливается и после перезапуска Obsidian через refresh token Supabase.",
-    "Пароль пользователя не сохраняется. Refresh token и ключ шифрования временно хранятся в Obsidian SecretStorage; по истечении 12 часов или после кнопки «Выйти» кеш очищается."
+    "В блоке «Идея» сразу появляется поле «Тема».",
+    "В блоке «Машина» сразу появляются поля «Тема» и «Пробег».",
+    "В журналах «Идеи» и «Машина» ссылка показывает дату и указанную тему.",
+    "В «Отношениях» поле названия темы сокращено до «Тема»; список сохраняет дату и тему."
   ],
   "files": [
     {
       "path": "main.js",
       "url": "https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/main.js",
-      "sha256": "f6664cc60ca38829462f503ae9a02f6d1ac1f57c9527cc2209728f77806c5ac1"
+      "sha256": "2b7e1e44899329f79d3e01a263561fa407c6cc604055438eb0a86b8fad8747cb"
     },
     {
       "path": "styles.css",
@@ -23,7 +23,7 @@
     {
       "path": "manifest.json",
       "url": "https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/manifest.json",
-      "sha256": "184e11b882c8d2b551344921e33bdebd9434f5cb1c90a6fd09c8eacd9fa18744"
+      "sha256": "3dba04fbe659e030cbd68f447120c6d7a2b0411d86843dacd6e37f765bb3fb00"
     }
   ]
 }
