@@ -1,7 +1,7 @@
 const { Plugin, Modal, Notice, ItemView, MarkdownView, moment, setIcon, Setting, PluginSettingTab, requestUrl } = require('obsidian');
 
 const VIEW_TYPE = 'compass-sidebar-view';
-const COMPASS_PLUGIN_VERSION = '2.3.4';
+const COMPASS_PLUGIN_VERSION = '2.3.5';
 const COMPASS_DATA_SCHEMA_VERSION = 3;
 
 const COMPASS_UPDATE_MANIFEST_URL = 'https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/latest.json';
@@ -1369,7 +1369,7 @@ class RelationshipsModal extends Modal {
       const situations = await this.plugin.getRelationshipSituations();
       const summaries = [];
       for (const situation of situations) summaries.push(await this.plugin.getRelationshipSituationSummary(situation));
-      summaries.sort((a, b) => (a.priority - b.priority) || (b.activityAt - a.activityAt));
+      summaries.sort((a, b) => +new Date(b.situation?.created_at || 0) - +new Date(a.situation?.created_at || 0));
       loading.remove();
       if (!summaries.length) {
         contentEl.createEl('p', { text: 'Здесь пока нет тем.' });
@@ -3428,7 +3428,26 @@ CompassPlugin232.prototype.reconcileTopicJournal232 = async function(file, journ
     if (!updated.endsWith('\n')) updated += '\n';
     updated += line;
   }
+  updated = this.sortTopicJournalEntries235(updated);
   if (updated !== original) await this.app.vault.modify(journalFile, updated);
+};
+
+/* Compass 2.3.5: keep Idea/Car journal entries in reverse chronological order. */
+CompassPlugin232.prototype.sortTopicJournalEntries235 = function(content) {
+  const normalized = String(content || '').replace(/\r\n?/g, '\n');
+  const lines = normalized.split('\n');
+  const entryRe = /^- \[\[01 Дни\/(\d{4}-\d{2}-\d{2})(?:\.md)?#[^|\]]+\|[^\]]+\]\]\s*$/;
+  const entries = [];
+  const rest = [];
+  for (const line of lines) {
+    const match = line.match(entryRe);
+    if (match) entries.push({ line: line.trimEnd(), date: match[1] });
+    else rest.push(line);
+  }
+  if (!entries.length) return normalized;
+  entries.sort((a, b) => b.date.localeCompare(a.date));
+  while (rest.length && !rest[rest.length - 1].trim()) rest.pop();
+  return `${rest.join('\n')}\n\n${entries.map(item => item.line).join('\n')}\n`;
 };
 
 CompassPlugin232.prototype.reconcileTopicJournals232 = async function(file) {

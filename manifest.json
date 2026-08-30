@@ -1,9 +1,9 @@
 {
   "id": "compass-add",
   "name": "Compass",
-  "version": "2.3.4",
+  "version": "2.3.6",
   "minAppVersion": "1.5.0",
-  "description": "Compass 2.3.4: темы записей «Идеи» и «Машина» корректно отображаются в журналах.",
+  "description": "Compass 2.3.6: единая сортировка по дате для Идей, Машины и Отношений, новые сверху.",
   "author": "OpenAI",
   "isDesktopOnly": false
 }

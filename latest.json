@@ -1,19 +1,19 @@
 {
-  "version": "2.3.4",
-  "minInstalledVersion": "2.3.3",
+  "version": "2.3.6",
+  "minInstalledVersion": "2.3.5",
   "touchesUserData": false,
   "requiresSupabaseMigration": false,
   "releaseNotes": [
-    "Журналы «Идеи» и «Машина» теперь берут название из строки «Тема:» в дневной записи.",
-    "При открытии этих журналов ссылки дополнительно пересобираются из актуальных дневных заметок.",
-    "После добавления блока «Машина» курсор сразу устанавливается в поле «Тема», а не в «Пробег».",
-    "Существующие дневные заметки и пользовательские данные не переписываются."
+    "«Идеи», «Машина» и «Отношения» теперь используют одинаковую сортировку по дате.",
+    "Самые новые записи отображаются сверху, старые — ниже.",
+    "В списках сохраняется формат «дата + тема».",
+    "Дневные заметки, темы отношений и пользовательские данные не переписываются."
   ],
   "files": [
     {
       "path": "main.js",
       "url": "https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/main.js",
-      "sha256": "85ec68c429097cd9e1f8682543b122f96acc943931da3aa4531ee9b5e294baa1"
+      "sha256": "166ac42cde6e89c01510bb64cab43d52ff799546c82708a50a51fb3be7d3779f"
     },
     {
       "path": "styles.css",
@@ -23,7 +23,7 @@
     {
       "path": "manifest.json",
       "url": "https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/manifest.json",
-      "sha256": "d9f53c9bd17f6ee8d3a9634b282926797bdfd99234887dbd0c6779d17247a24c"
+      "sha256": "845c05de06e6ab84ca90ade8aa98e7db5de7323a4d422e3c923c9f94529b20c2"
     }
   ]
 }
