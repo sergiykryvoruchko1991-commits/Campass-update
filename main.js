@@ -2149,9 +2149,6 @@ module.exports = class CompassPlugin extends Plugin {
         if (!silent) new Notice(`Compass ${COMPASS_PLUGIN_VERSION}: обновлений нет`);
         return null;
       }
-      if (manifest.minInstalledVersion && compareVersions(COMPASS_PLUGIN_VERSION, manifest.minInstalledVersion) < 0) {
-        throw new Error(`Для прямого обновления нужна версия не ниже ${manifest.minInstalledVersion}`);
-      }
       if (openModal) new CompassUpdateModal(this.app, this, manifest).open();
       else new Notice(`Доступно обновление Compass ${manifest.version}`);
       return manifest;
@@ -3432,7 +3429,7 @@ CompassPlugin232.prototype.reconcileTopicJournal232 = async function(file, journ
   if (updated !== original) await this.app.vault.modify(journalFile, updated);
 };
 
-/* Compass 2.3.5: keep Idea/Car journal entries in reverse chronological order. */
+/* Compass 2.3.5: Idea/Car/Relationships sorted newest-first; updater allows skipping intermediate versions. */
 CompassPlugin232.prototype.sortTopicJournalEntries235 = function(content) {
   const normalized = String(content || '').replace(/\r\n?/g, '\n');
   const lines = normalized.split('\n');
