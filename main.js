@@ -1,7 +1,7 @@
 const { Plugin, Modal, Notice, ItemView, MarkdownView, moment, setIcon, Setting, PluginSettingTab, requestUrl } = require('obsidian');
 
 const VIEW_TYPE = 'compass-sidebar-view';
-const COMPASS_PLUGIN_VERSION = '2.3.5';
+const COMPASS_PLUGIN_VERSION = '2.3.6';
 const COMPASS_DATA_SCHEMA_VERSION = 3;
 
 const COMPASS_UPDATE_MANIFEST_URL = 'https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/latest.json';
@@ -3522,5 +3522,62 @@ CompassPlugin234.prototype.addEntry = async function(type) {
   }
 
   if (type.journal) await this.appendJournal(type.journal, date, heading, file.path);
+  new Notice(`Добавлено: ${type.label}`);
+};
+
+
+/* Compass 2.3.6: Topic support for the ordinary "Отношения" journal (not Supabase shared Relationships). */
+const CompassPlugin236 = module.exports;
+
+CompassPlugin236.prototype.getRelationshipJournalType236 = function() {
+  try {
+    return this.getAllTypes().find(type => String(type?.journal || '').trim() === 'Отношения') || null;
+  } catch (e) {
+    return null;
+  }
+};
+
+const compass236BaseReconcileTopicJournals = CompassPlugin236.prototype.reconcileTopicJournals232;
+CompassPlugin236.prototype.reconcileTopicJournals232 = async function(file) {
+  await compass236BaseReconcileTopicJournals.call(this, file);
+  const type = this.getRelationshipJournalType236();
+  if (type?.label) await this.reconcileTopicJournal232(file, 'Отношения', type.label);
+};
+
+const compass236BaseOpenTarget = CompassPlugin236.prototype.openTarget;
+CompassPlugin236.prototype.openTarget = async function(target) {
+  if (target === '03 Журналы/Отношения.md') {
+    try { await this.reconcileAllTopicJournals232(); }
+    catch (e) { console.warn('Compass 2.3.6 relationships journal refresh', e); }
+  }
+  return compass236BaseOpenTarget.call(this, target);
+};
+
+const compass236BaseAddEntry = CompassPlugin236.prototype.addEntry;
+CompassPlugin236.prototype.addEntry = async function(type) {
+  if (!type || String(type.journal || '').trim() !== 'Отношения') {
+    return compass236BaseAddEntry.call(this, type);
+  }
+
+  let view = this.app.workspace.getActiveViewOfType(MarkdownView);
+  let file = view && view.file && view.file.path.startsWith('01 Дни/') ? view.file : null;
+  if (!file) file = await this.ensureDate(moment());
+
+  await this.app.workspace.getLeaf(false).openFile(file);
+  view = this.app.workspace.getActiveViewOfType(MarkdownView);
+  const heading = type.label;
+  const block = `\n## ${heading}\n\n**Тема:** `;
+
+  if (view && view.file && view.file.path === file.path) {
+    const editor = view.editor;
+    editor.setCursor(editor.lineCount(), 0);
+    editor.replaceSelection(block);
+    editor.setCursor({ line: Math.max(0, editor.lineCount() - 1), ch: '**Тема:** '.length });
+    editor.focus();
+  } else {
+    await this.app.vault.append(file, block);
+  }
+
+  await this.reconcileTopicJournal232(file, 'Отношения', heading);
   new Notice(`Добавлено: ${type.label}`);
 };
