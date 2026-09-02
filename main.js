@@ -1,7 +1,7 @@
 const { Plugin, Modal, Notice, ItemView, MarkdownView, moment, setIcon, Setting, PluginSettingTab, requestUrl } = require('obsidian');
 
 const VIEW_TYPE = 'compass-sidebar-view';
-const COMPASS_PLUGIN_VERSION = '2.3.6';
+const COMPASS_PLUGIN_VERSION = '2.3.7';
 const COMPASS_DATA_SCHEMA_VERSION = 3;
 
 const COMPASS_UPDATE_MANIFEST_URL = 'https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/latest.json';
@@ -3580,4 +3580,174 @@ CompassPlugin236.prototype.addEntry = async function(type) {
 
   await this.reconcileTopicJournal232(file, 'Отношения', heading);
   new Notice(`Добавлено: ${type.label}`);
+};
+
+
+/* Compass 2.3.7: Topic support for every active journal, including future custom journals. */
+const CompassPlugin237 = module.exports;
+
+CompassPlugin237.prototype.getActiveJournalTypes237 = function() {
+  const seen = new Set();
+  const result = [];
+  let types = [];
+  try { types = this.getAllTypes(); }
+  catch (e) { types = []; }
+
+  for (const type of types) {
+    const journal = String(type?.journal || '').trim();
+    const label = String(type?.label || '').trim();
+    if (!journal || !label) continue;
+    const identity = `${journal}\u0000${label}`;
+    if (seen.has(identity)) continue;
+    seen.add(identity);
+    result.push({ ...type, journal, label });
+  }
+  return result;
+};
+
+CompassPlugin237.prototype.addMissingTopicFields237 = function(content, journalTypes = null) {
+  const original = String(content || '');
+  const newline = original.includes('\r\n') ? '\r\n' : '\n';
+  const lines = original.replace(/\r\n?/g, '\n').split('\n');
+  const types = Array.isArray(journalTypes) ? journalTypes : this.getActiveJournalTypes237();
+  const headings = new Set(types.map(type => `## ${type.label}`));
+  const insertions = [];
+
+  for (let index = 0; index < lines.length; index += 1) {
+    if (!headings.has(lines[index].trim())) continue;
+    let end = index + 1;
+    while (end < lines.length && !/^##\s+/.test(lines[end].trim())) end += 1;
+
+    let hasTopic = false;
+    for (let cursor = index + 1; cursor < end; cursor += 1) {
+      const plain = lines[cursor].replace(/\*\*/g, '').trim();
+      if (/^Тема\s*:/i.test(plain)) {
+        hasTopic = true;
+        break;
+      }
+    }
+    if (hasTopic) continue;
+
+    const hasBlankAfterHeading = index + 1 < lines.length && lines[index + 1].trim() === '';
+    insertions.push({ index: hasBlankAfterHeading ? index + 2 : index + 1, addBlank: !hasBlankAfterHeading });
+  }
+
+  for (let index = insertions.length - 1; index >= 0; index -= 1) {
+    const insertion = insertions[index];
+    const added = insertion.addBlank ? ['', '**Тема:** '] : ['**Тема:** '];
+    lines.splice(insertion.index, 0, ...added);
+  }
+
+  return {
+    changed: insertions.length > 0,
+    inserted: insertions.length,
+    content: lines.join(newline)
+  };
+};
+
+CompassPlugin237.prototype.ensureDailyTopicFields237 = async function(file) {
+  if (!file || file.extension !== 'md' || !String(file.path || '').startsWith('01 Дни/')) return 0;
+  const original = await this.app.vault.read(file);
+  const result = this.addMissingTopicFields237(original);
+  if (result.changed) await this.app.vault.modify(file, result.content);
+  return result.inserted;
+};
+
+CompassPlugin237.prototype.cleanJournalAlias237 = function(value) {
+  return String(value || '').replace(/[\[\]|]/g, ' ').replace(/\s+/g, ' ').trim();
+};
+
+CompassPlugin237.prototype.reconcileTopicJournal232 = async function(file, journal, heading) {
+  if (!file || !file.path || !file.basename) return;
+  const daily = await this.app.vault.read(file);
+  const topic = this.extractDailyTopic232(daily, heading);
+  if (topic === null) return;
+
+  const journalPath = `03 Журналы/${journal}.md`;
+  let journalFile = this.app.vault.getAbstractFileByPath(journalPath);
+  if (!journalFile) journalFile = await this.app.vault.create(journalPath, `# ${journal}\n\n`);
+
+  const target = file.path.replace(/\.md$/, '');
+  const escapedTarget = target.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const escapedHeading = String(heading).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const targetWithOptionalMd = `${escapedTarget}(?:\\.md)?`;
+  const cleanupRe = new RegExp(`^- \\[\\[${targetWithOptionalMd}#${escapedHeading}\\|[^\\]]+\\]\\]\\n?`, 'gm');
+  const original = await this.app.vault.read(journalFile);
+  let updated = original.replace(/\\n(?=- \[\[)/g, '\n').replace(cleanupRe, '');
+  const cleanTopic = this.cleanJournalAlias237(topic);
+  const alias = cleanTopic
+    ? `${formatJournalDate(file.basename)} — ${cleanTopic}`
+    : formatJournalDate(file.basename);
+  const line = `- [[${target}#${heading}|${alias}]]\n`;
+  if (!updated.endsWith('\n')) updated += '\n';
+  updated += line;
+  updated = this.sortTopicJournalEntries235(updated);
+  if (updated !== original) await this.app.vault.modify(journalFile, updated);
+};
+
+CompassPlugin237.prototype.reconcileTopicJournals232 = async function(file) {
+  await this.ensureDailyTopicFields237(file);
+  for (const type of this.getActiveJournalTypes237()) {
+    await this.reconcileTopicJournal232(file, type.journal, type.label);
+  }
+};
+
+CompassPlugin237.prototype.appendJournal = async function(journal, date, heading, dailyPath) {
+  const path = `03 Журналы/${journal}.md`;
+  let file = this.app.vault.getAbstractFileByPath(path);
+  if (!file) file = await this.app.vault.create(path, `# ${journal}\n\n`);
+  const target = dailyPath.replace(/\.md$/, '');
+  const escapedTarget = target.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const escapedHeading = String(heading).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const cleanupRe = new RegExp(`^- \\[\\[${escapedTarget}(?:\\.md)?#${escapedHeading}\\|[^\\]]+\\]\\]\\n?`, 'gm');
+  const original = await this.app.vault.read(file);
+  let updated = original.replace(cleanupRe, '');
+  if (!updated.endsWith('\n')) updated += '\n';
+  updated += `- [[${target}#${heading}|${formatJournalDate(date)}]]\n`;
+  updated = this.sortTopicJournalEntries235(updated);
+  if (updated !== original) await this.app.vault.modify(file, updated);
+};
+
+const compass237BaseAddEntry = CompassPlugin237.prototype.addEntry;
+CompassPlugin237.prototype.addEntry = async function(type) {
+  if (!type?.journal) return compass237BaseAddEntry.call(this, type);
+
+  let view = this.app.workspace.getActiveViewOfType(MarkdownView);
+  let file = view && view.file && view.file.path.startsWith('01 Дни/') ? view.file : null;
+  if (!file) file = await this.ensureDate(moment());
+
+  await this.app.workspace.getLeaf(false).openFile(file);
+  view = this.app.workspace.getActiveViewOfType(MarkdownView);
+  const heading = type.label;
+  const starter = type.key === 'car'
+    ? '**Тема:** \n**Пробег:** '
+    : '**Тема:** ';
+  const block = `\n## ${heading}\n\n${starter}`;
+
+  if (view && view.file && view.file.path === file.path) {
+    const editor = view.editor;
+    editor.setCursor(editor.lineCount(), 0);
+    editor.replaceSelection(block);
+    const topicLineOffset = type.key === 'car' ? 2 : 1;
+    editor.setCursor({ line: Math.max(0, editor.lineCount() - topicLineOffset), ch: '**Тема:** '.length });
+    editor.focus();
+  } else {
+    await this.app.vault.append(file, block);
+  }
+
+  await this.appendJournal(type.journal, file.basename, heading, file.path);
+  new Notice(`Добавлено: ${type.label}`);
+};
+
+const compass237BaseOpenTarget = CompassPlugin237.prototype.openTarget;
+CompassPlugin237.prototype.openTarget = async function(target) {
+  const journalTarget = /^03 Журналы\/.+\.md$/.test(String(target || ''));
+  const handledByOlderRefresh = target === '03 Журналы/Машина.md'
+    || target === '03 Журналы/Идеи.md'
+    || target === '03 Журналы/Отношения.md';
+  if (journalTarget && !handledByOlderRefresh) {
+    try { await this.reconcileAllTopicJournals232(); }
+    catch (e) { console.warn('Compass 2.3.7 journal refresh', e); }
+  }
+  return compass237BaseOpenTarget.call(this, target);
 };
