@@ -1,7 +1,7 @@
 const { Plugin, Modal, Notice, ItemView, MarkdownView, moment, setIcon, Setting, PluginSettingTab, requestUrl } = require('obsidian');
 
 const VIEW_TYPE = 'compass-sidebar-view';
-const COMPASS_PLUGIN_VERSION = '2.3.7';
+const COMPASS_PLUGIN_VERSION = '2.3.8';
 const COMPASS_DATA_SCHEMA_VERSION = 3;
 
 const COMPASS_UPDATE_MANIFEST_URL = 'https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/latest.json';
@@ -3750,4 +3750,338 @@ CompassPlugin237.prototype.openTarget = async function(target) {
     catch (e) { console.warn('Compass 2.3.7 journal refresh', e); }
   }
   return compass237BaseOpenTarget.call(this, target);
+};
+
+
+/* Compass 2.3.8: independent same-day journal entries and Idea checkboxes. */
+const CompassPlugin238 = module.exports;
+const compass238BaseOnload = CompassPlugin238.prototype.onload;
+const compass238BaseAddEntry = CompassPlugin238.prototype.addEntry;
+const compass238BaseReconcileTopicJournal = CompassPlugin238.prototype.reconcileTopicJournal232;
+
+CompassPlugin238.prototype.isFoodJournal238 = function(typeOrJournal) {
+  const journal = typeof typeOrJournal === 'string'
+    ? typeOrJournal
+    : String(typeOrJournal?.journal || '');
+  return journal.trim() === 'Еда';
+};
+
+CompassPlugin238.prototype.getTrackedJournalTypes238 = function() {
+  return this.getActiveJournalTypes237().filter(type => !this.isFoodJournal238(type));
+};
+
+CompassPlugin238.prototype.makeJournalEntryId238 = function(used = null) {
+  let id = '';
+  do {
+    const stamp = Date.now().toString(36);
+    const random = Math.random().toString(36).slice(2, 10);
+    id = `compass-journal-${stamp}-${random}`;
+  } while (used && used.has(id));
+  if (used) used.add(id);
+  return id;
+};
+
+CompassPlugin238.prototype.topicLineInfo238 = function(line) {
+  const raw = String(line || '');
+  const idMatch = raw.match(/\s+\^([A-Za-z0-9-]+)\s*$/);
+  const withoutId = idMatch ? raw.slice(0, idMatch.index).trimEnd() : raw;
+  const plain = withoutId.replace(/\*\*/g, '').trim();
+  const topicMatch = plain.match(/^Тема\s*:\s*(.*)$/i);
+  if (!topicMatch) return null;
+  return {
+    id: idMatch ? idMatch[1] : '',
+    topic: String(topicMatch[1] || '').trim(),
+    withoutId
+  };
+};
+
+CompassPlugin238.prototype.ensureJournalIdsInContent238 = function(content, journalTypes = null) {
+  const original = String(content || '');
+  const newline = original.includes('\r\n') ? '\r\n' : '\n';
+  const lines = original.replace(/\r\n?/g, '\n').split('\n');
+  const types = Array.isArray(journalTypes) ? journalTypes : this.getTrackedJournalTypes238();
+  const byHeading = new Map(types.map(type => [String(type.label || '').trim(), type]));
+  const used = new Set();
+  let inserted = 0;
+  let replaced = 0;
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const match = lines[index].trim().match(/^##\s+(.+?)\s*$/);
+    if (!match || !byHeading.has(match[1].trim())) continue;
+
+    let end = index + 1;
+    while (end < lines.length && !/^##\s+/.test(lines[end].trim())) end += 1;
+
+    let topicIndex = -1;
+    let topicInfo = null;
+    for (let cursor = index + 1; cursor < end; cursor += 1) {
+      const info = this.topicLineInfo238(lines[cursor]);
+      if (!info) continue;
+      topicIndex = cursor;
+      topicInfo = info;
+      break;
+    }
+
+    if (topicIndex < 0) {
+      const id = this.makeJournalEntryId238(used);
+      const insertAt = index + 1 < lines.length && lines[index + 1].trim() === ''
+        ? index + 2
+        : index + 1;
+      const added = insertAt === index + 1
+        ? ['', `**Тема:**  ^${id}`]
+        : [`**Тема:**  ^${id}`];
+      lines.splice(insertAt, 0, ...added);
+      inserted += 1;
+      index += added.length;
+      continue;
+    }
+
+    let id = topicInfo.id;
+    if (!id || used.has(id)) {
+      id = this.makeJournalEntryId238(used);
+      lines[topicIndex] = `${topicInfo.withoutId.trimEnd()} ^${id}`;
+      if (topicInfo.id) replaced += 1;
+      else inserted += 1;
+    } else {
+      used.add(id);
+    }
+  }
+
+  return {
+    changed: inserted > 0 || replaced > 0,
+    inserted,
+    replaced,
+    content: lines.join(newline)
+  };
+};
+
+CompassPlugin238.prototype.ensureDailyJournalIds238 = async function(file) {
+  if (!file || file.extension !== 'md' || !/^01 Дни\/\d{4}-\d{2}-\d{2}\.md$/.test(String(file.path || ''))) return 0;
+  const original = await this.app.vault.read(file);
+  const result = this.ensureJournalIdsInContent238(original);
+  if (result.changed) await this.app.vault.modify(file, result.content);
+  return result.inserted + result.replaced;
+};
+
+CompassPlugin238.prototype.parseDailyJournalEntries238 = function(content, type) {
+  const lines = String(content || '').replace(/\r\n?/g, '\n').split('\n');
+  const wanted = String(type?.label || '').trim();
+  const entries = [];
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const headingMatch = lines[index].trim().match(/^##\s+(.+?)\s*$/);
+    if (!headingMatch || headingMatch[1].trim() !== wanted) continue;
+
+    let end = index + 1;
+    while (end < lines.length && !/^##\s+/.test(lines[end].trim())) end += 1;
+    for (let cursor = index + 1; cursor < end; cursor += 1) {
+      const info = this.topicLineInfo238(lines[cursor]);
+      if (!info) continue;
+      if (info.id) entries.push({ id: info.id, topic: info.topic, order: entries.length });
+      break;
+    }
+  }
+  return entries;
+};
+
+CompassPlugin238.prototype.parseJournalLine238 = function(line) {
+  const match = String(line || '').match(
+    /^- (?:\[([ xX])\] )?\[\[(01 Дни\/[^#|\]]+)#(\^[A-Za-z0-9-]+|[^|\]]+)\|([^\]]+)\]\]\s*$/
+  );
+  if (!match) return null;
+  const target = match[2].replace(/\.md$/, '');
+  const dateMatch = target.match(/(?:^|\/)(\d{4}-\d{2}-\d{2})$/);
+  return {
+    checkbox: match[1] || null,
+    checked: String(match[1] || '').toLowerCase() === 'x',
+    target,
+    subpath: match[3],
+    alias: match[4],
+    date: dateMatch ? dateMatch[1] : ''
+  };
+};
+
+CompassPlugin238.prototype.isManagedJournalLine238 = function(parsed, type) {
+  if (!parsed) return false;
+  if (parsed.subpath.startsWith('^')) return true;
+  return parsed.subpath === String(type?.label || '').trim();
+};
+
+CompassPlugin238.prototype.sortJournalEntries238 = function(content, type) {
+  const normalized = String(content || '').replace(/\r\n?/g, '\n');
+  const lines = normalized.split('\n');
+  const entries = [];
+  const rest = [];
+
+  lines.forEach((line, index) => {
+    const parsed = this.parseJournalLine238(line);
+    if (this.isManagedJournalLine238(parsed, type) && parsed.date) {
+      entries.push({ line: line.trimEnd(), date: parsed.date, index });
+    } else {
+      rest.push(line);
+    }
+  });
+
+  if (!entries.length) return normalized;
+  entries.sort((a, b) => b.date.localeCompare(a.date) || a.index - b.index);
+  while (rest.length && !rest[rest.length - 1].trim()) rest.pop();
+  return `${rest.join('\n')}\n\n${entries.map(item => item.line).join('\n')}\n`;
+};
+
+CompassPlugin238.prototype.replaceJournalEntries238 = function(original, type, entries, dailyTarget = null) {
+  const normalized = String(original || '').replace(/\r\n?/g, '\n');
+  const checkedByLink = new Map();
+
+  for (const line of normalized.split('\n')) {
+    const parsed = this.parseJournalLine238(line);
+    if (!this.isManagedJournalLine238(parsed, type) || !parsed.subpath.startsWith('^')) continue;
+    checkedByLink.set(`${parsed.target}#${parsed.subpath}`, parsed.checked);
+  }
+
+  const kept = normalized.split('\n').filter(line => {
+    const parsed = this.parseJournalLine238(line);
+    if (!this.isManagedJournalLine238(parsed, type)) return true;
+    return dailyTarget !== null && parsed.target !== dailyTarget;
+  });
+
+  while (kept.length && !kept[kept.length - 1].trim()) kept.pop();
+  let updated = kept.join('\n');
+  if (entries.length) {
+    if (updated && !updated.endsWith('\n')) updated += '\n';
+    if (updated && !updated.endsWith('\n\n')) updated += '\n';
+    const isIdeas = String(type?.journal || '').trim() === 'Идеи';
+    const generated = entries.map(entry => {
+      const target = String(entry.dailyPath || '').replace(/\.md$/, '');
+      const subpath = `^${entry.id}`;
+      const cleanTopic = this.cleanJournalAlias237(entry.topic);
+      const alias = cleanTopic
+        ? `${formatJournalDate(entry.date)} — ${cleanTopic}`
+        : formatJournalDate(entry.date);
+      const task = isIdeas
+        ? `[${checkedByLink.get(`${target}#${subpath}`) ? 'x' : ' '}] `
+        : '';
+      return `- ${task}[[${target}#${subpath}|${alias}]]`;
+    });
+    updated += `${generated.join('\n')}\n`;
+  } else if (updated && !updated.endsWith('\n')) {
+    updated += '\n';
+  }
+  return this.sortJournalEntries238(updated, type);
+};
+
+CompassPlugin238.prototype.readEntriesForDaily238 = async function(file, type) {
+  const content = await this.app.vault.read(file);
+  return this.parseDailyJournalEntries238(content, type).map(entry => ({
+    ...entry,
+    date: file.basename,
+    dailyPath: file.path
+  }));
+};
+
+CompassPlugin238.prototype.ensureJournalFile238 = async function(type) {
+  const path = `03 Журналы/${type.journal}.md`;
+  let file = this.app.vault.getAbstractFileByPath(path);
+  if (!file) file = await this.app.vault.create(path, `# ${type.journal}\n\n`);
+  return file;
+};
+
+CompassPlugin238.prototype.reconcileDailyTrackedJournals238 = async function(file) {
+  if (!file || file.extension !== 'md' || !/^01 Дни\/\d{4}-\d{2}-\d{2}\.md$/.test(String(file.path || ''))) return;
+  await this.ensureDailyJournalIds238(file);
+  const target = file.path.replace(/\.md$/, '');
+
+  for (const type of this.getTrackedJournalTypes238()) {
+    const entries = await this.readEntriesForDaily238(file, type);
+    const journalFile = await this.ensureJournalFile238(type);
+    const original = await this.app.vault.read(journalFile);
+    const updated = this.replaceJournalEntries238(original, type, entries, target);
+    if (updated !== original) await this.app.vault.modify(journalFile, updated);
+  }
+
+  const food = this.getActiveJournalTypes237().find(type => this.isFoodJournal238(type));
+  if (food) await compass238BaseReconcileTopicJournal.call(this, file, food.journal, food.label);
+};
+
+CompassPlugin238.prototype.reconcileAllTrackedJournals238 = async function() {
+  const files = this.app.vault.getMarkdownFiles()
+    .filter(file => /^01 Дни\/\d{4}-\d{2}-\d{2}\.md$/.test(String(file.path || '')))
+    .sort((a, b) => a.path.localeCompare(b.path));
+
+  for (const file of files) await this.ensureDailyJournalIds238(file);
+
+  for (const type of this.getTrackedJournalTypes238()) {
+    const entries = [];
+    for (const file of files) entries.push(...await this.readEntriesForDaily238(file, type));
+    const journalFile = await this.ensureJournalFile238(type);
+    const original = await this.app.vault.read(journalFile);
+    const updated = this.replaceJournalEntries238(original, type, entries, null);
+    if (updated !== original) await this.app.vault.modify(journalFile, updated);
+  }
+
+  const food = this.getActiveJournalTypes237().find(type => this.isFoodJournal238(type));
+  if (food) {
+    for (const file of files) {
+      await compass238BaseReconcileTopicJournal.call(this, file, food.journal, food.label);
+    }
+  }
+};
+
+CompassPlugin238.prototype.enqueueJournalSync238 = function(task) {
+  const previous = this._journalSyncQueue238 || Promise.resolve();
+  const current = previous.catch(() => {}).then(task);
+  this._journalSyncQueue238 = current;
+  return current;
+};
+
+CompassPlugin238.prototype.reconcileTopicJournals232 = function(file) {
+  return this.enqueueJournalSync238(() => this.reconcileDailyTrackedJournals238(file));
+};
+
+CompassPlugin238.prototype.reconcileAllTopicJournals232 = function() {
+  return this.enqueueJournalSync238(() => this.reconcileAllTrackedJournals238());
+};
+
+CompassPlugin238.prototype.onload = async function() {
+  this._journalSyncQueue238 = Promise.resolve();
+  await compass238BaseOnload.call(this);
+  this.app.workspace.onLayoutReady(() => {
+    window.setTimeout(() => {
+      this.reconcileAllTopicJournals232().catch(e => console.warn('Compass 2.3.8 journal migration', e));
+    }, 2200);
+  });
+};
+
+CompassPlugin238.prototype.addEntry = async function(type) {
+  if (!type?.journal || this.isFoodJournal238(type)) {
+    return compass238BaseAddEntry.call(this, type);
+  }
+
+  let view = this.app.workspace.getActiveViewOfType(MarkdownView);
+  let file = view && view.file && /^01 Дни\/\d{4}-\d{2}-\d{2}\.md$/.test(view.file.path) ? view.file : null;
+  if (!file) file = await this.ensureDate(moment());
+
+  await this.app.workspace.getLeaf(false).openFile(file);
+  view = this.app.workspace.getActiveViewOfType(MarkdownView);
+  const heading = type.label;
+  const id = this.makeJournalEntryId238();
+  const topicLine = `**Тема:**  ^${id}`;
+  const starter = type.key === 'car'
+    ? `${topicLine}\n**Пробег:** `
+    : topicLine;
+  const block = `\n## ${heading}\n\n${starter}`;
+
+  if (view && view.file && view.file.path === file.path) {
+    const editor = view.editor;
+    editor.setCursor(editor.lineCount(), 0);
+    editor.replaceSelection(block);
+    const topicLineOffset = type.key === 'car' ? 2 : 1;
+    editor.setCursor({ line: Math.max(0, editor.lineCount() - topicLineOffset), ch: '**Тема:** '.length });
+    editor.focus();
+    window.setTimeout(() => this.reconcileTopicJournals232(file).catch(() => {}), 900);
+  } else {
+    await this.app.vault.append(file, block);
+    await this.reconcileTopicJournals232(file);
+  }
+
+  new Notice(`Добавлено: ${type.label}`);
 };
