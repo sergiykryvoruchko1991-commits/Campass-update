@@ -1,7 +1,7 @@
 const { Plugin, Modal, Notice, ItemView, MarkdownView, moment, setIcon, Setting, PluginSettingTab, requestUrl } = require('obsidian');
 
 const VIEW_TYPE = 'compass-sidebar-view';
-const COMPASS_PLUGIN_VERSION = '2.3.10';
+const COMPASS_PLUGIN_VERSION = '2.3.11';
 const COMPASS_DATA_SCHEMA_VERSION = 3;
 
 const COMPASS_UPDATE_MANIFEST_URL = 'https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/latest.json';
@@ -2195,9 +2195,57 @@ module.exports = class CompassPlugin extends Plugin {
   /* Единая точка входа: вызывается перед каждой отрисовкой панели
      и после любого события создания/удаления/переименования в vault. */
   reconcileAllSections() {
+    const p = this.pruneMissingSections();
     const a = this.reconcileLibrarySections();
     const b = this.reconcileJournalSections();
-    return a || b;
+    return p || a || b;
+  }
+
+  /* Compass 2.3.11: убирает из боковой панели «призраков» — разделы,
+     чья папка/файл уже не существует в vault (удалены или заархивированы
+     на другом устройстве, а сюда долетело только сообщение об удалении,
+     без соответствующего обновления списка разделов). Если фактическое
+     содержимое найдено в 05 Архив по стандартному пути — регистрируем
+     как заархивированный раздел, чтобы он был виден через «📦 Архив». */
+  pruneMissingSections() {
+    let changed = false;
+    const stillExisting = [];
+
+    for (const section of this.customSections) {
+      const path = section.type === 'library'
+        ? section.folder
+        : `03 Журналы/${section.journal}.md`;
+      const exists = path && this.app.vault.getAbstractFileByPath(path);
+
+      if (exists) { stillExisting.push(section); continue; }
+
+      changed = true;
+      const alreadyArchived = (this.archivedSections || []).some(
+        a => a.type === section.type && a.name === section.name
+      );
+      if (!alreadyArchived) {
+        const guessedArchivedPath = section.type === 'library'
+          ? `05 Архив/Базы знаний/${section.name}`
+          : `05 Архив/Журналы/${section.journal}.md`;
+        const archivedExists = this.app.vault.getAbstractFileByPath(guessedArchivedPath);
+        this.archivedSections.push({
+          source: section.source || 'custom',
+          builtinId: section.builtinId || null,
+          type: section.type,
+          name: section.name,
+          emoji: section.emoji || '📌',
+          journal: section.journal || null,
+          folder: section.folder || null,
+          originalPath: path,
+          archivedPath: archivedExists ? guessedArchivedPath : null,
+          archivedAt: new Date().toISOString()
+        });
+      }
+    }
+
+    this.customSections = stillExisting;
+    if (changed) this.saveCompassData().catch(() => {});
+    return changed;
   }
   isBuiltinHidden(id) { return this.hiddenBuiltins.includes(id); }
 
@@ -2896,13 +2944,43 @@ module.exports = class CompassPlugin extends Plugin {
       archivedPath = `05 Архив/Базы знаний/${section.name}`;
     }
 
+    const source = this.app.vault.getAbstractFileByPath(originalPath);
     const existingArchive = this.app.vault.getAbstractFileByPath(archivedPath);
+
     if (existingArchive) {
+      if (!source) {
+        // Compass 2.3.11: оригинала уже нет (удалён/перенесён на другом
+        // устройстве через синхронизацию), а в Архиве такой раздел уже есть —
+        // значит его уже заархивировали там. Просто приводим локальный
+        // список разделов в соответствие с реальностью, не блокируем.
+        if (section.source === 'builtin') {
+          if (!this.hiddenBuiltins.includes(section.builtinId)) this.hiddenBuiltins.push(section.builtinId);
+        } else {
+          this.customSections = this.customSections.filter(item => !(item.type === section.type && item.name === section.name));
+        }
+        if (!this.archivedSections.some(a => a.type === section.type && a.name === section.name)) {
+          this.archivedSections.push({
+            source: section.source,
+            builtinId: section.builtinId || null,
+            type: section.type,
+            name: section.name,
+            emoji: section.emoji || '📌',
+            journal: section.journal || null,
+            folder: section.folder || null,
+            originalPath,
+            archivedPath,
+            archivedAt
+          });
+        }
+        await this.saveCompassData();
+        this.refreshSidebar();
+        new Notice(`Уже в Архиве (перенесено на другом устройстве): ${section.emoji || '📌'} ${section.name}`);
+        return true;
+      }
       new Notice('В Архиве уже есть раздел с таким названием');
       return false;
     }
 
-    const source = this.app.vault.getAbstractFileByPath(originalPath);
     if (source) await this.app.vault.rename(source, archivedPath);
 
     if (section.source === 'builtin') {
