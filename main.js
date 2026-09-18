@@ -1,7 +1,7 @@
 const { Plugin, Modal, Notice, ItemView, MarkdownView, moment, setIcon, Setting, PluginSettingTab, requestUrl } = require('obsidian');
 
 const VIEW_TYPE = 'compass-sidebar-view';
-const COMPASS_PLUGIN_VERSION = '2.3.8';
+const COMPASS_PLUGIN_VERSION = '2.3.10';
 const COMPASS_DATA_SCHEMA_VERSION = 3;
 
 const COMPASS_UPDATE_MANIFEST_URL = 'https://raw.githubusercontent.com/sergiykryvoruchko1991-commits/Campass-update/main/latest.json';
@@ -1574,6 +1574,8 @@ class CompassSidebarView extends ItemView {
   }
 
   render() {
+    this.plugin.reconcileAllSections();
+
     const container = this.containerEl.children[1];
     container.empty();
     container.addClass('compass-sidebar');
@@ -1981,8 +1983,23 @@ module.exports = class CompassPlugin extends Plugin {
       button.onclick = () => this.openChoice();
     });
 
+    // Compass 2.3.10: если Remotely Save (или файловый менеджер) создаёт/удаляет/
+    // переименовывает что-либо в «02 Базы знаний» или «03 Журналы», подхватываем
+    // это без перезапуска Obsidian — для любых новых файлов и папок.
+    const scheduleSectionRescan = (path) => {
+      if (typeof path !== 'string') return;
+      const relevant = path.startsWith('02 Базы знаний/') || path.startsWith('03 Журналы/');
+      if (!relevant) return;
+      window.clearTimeout(this._sectionRescanTimer);
+      this._sectionRescanTimer = window.setTimeout(() => this.refreshSidebar(), 800);
+    };
+    this.registerEvent(this.app.vault.on('create', file => scheduleSectionRescan(file.path)));
+    this.registerEvent(this.app.vault.on('rename', file => scheduleSectionRescan(file.path)));
+    this.registerEvent(this.app.vault.on('delete', file => scheduleSectionRescan(file.path)));
+
     this.app.workspace.onLayoutReady(() => {
       this.activateSidebar();
+      this.reconcileAllSections();
       if (this.updateSettings.autoCheck) {
         window.setTimeout(() => this.checkForCompassUpdates({ openModal: false, silent: true }).catch(() => {}), 4000);
       }
@@ -2098,6 +2115,90 @@ module.exports = class CompassPlugin extends Plugin {
 
   getCustomJournals() { return this.customSections.filter(section => section.type === 'journal'); }
   getCustomLibraries() { return this.customSections.filter(section => section.type === 'library'); }
+
+  /* Compass 2.3.9: подхватывает папки, созданные вручную (файловый менеджер)
+     или синхронизацией (Remotely Save), которых ещё нет в customSections. */
+  reconcileLibrarySections() {
+    const root = this.app.vault.getAbstractFileByPath('02 Базы знаний');
+    if (!root || !Array.isArray(root.children)) return false;
+
+    const known = new Set(
+      this.customSections.filter(s => s.type === 'library').map(s => s.folder)
+    );
+    const archived = new Set(
+      (this.archivedSections || []).filter(s => s.type === 'library').map(s => s.folder)
+    );
+
+    let changed = false;
+    for (const child of root.children) {
+      if (!Array.isArray(child.children)) continue; // интересуют только папки
+      if (known.has(child.path) || archived.has(child.path)) continue;
+
+      this.customSections.push({
+        type: 'library',
+        name: child.name,
+        emoji: '📁',
+        folder: child.path,
+        source: 'custom',
+        discovered: true
+      });
+      changed = true;
+    }
+
+    if (changed) this.saveCompassData().catch(() => {});
+    return changed;
+  }
+
+  /* Compass 2.3.10: то же самое для журналов — .md-файлы, созданные вручную
+     или синхронизацией прямо в «03 Журналы», подхватываются автоматически.
+     Встроенные журналы (BUILTIN_JOURNALS) и особый файл «Отношения»
+     не трогаем — они уже управляются отдельно. */
+  reconcileJournalSections() {
+    const root = this.app.vault.getAbstractFileByPath('03 Журналы');
+    if (!root || !Array.isArray(root.children)) return false;
+
+    const reserved = new Set([
+      ...BUILTIN_JOURNALS.map(([, name]) => name.toLocaleLowerCase('ru')),
+      'отношения'
+    ]);
+    const known = new Set(
+      this.customSections.filter(s => s.type === 'journal').map(s => s.journal)
+    );
+    const archived = new Set(
+      (this.archivedSections || []).filter(s => s.type === 'journal').map(s => s.journal)
+    );
+
+    let changed = false;
+    for (const child of root.children) {
+      if (Array.isArray(child.children)) continue; // журналы — файлы, не папки
+      if (!child.name.toLowerCase().endsWith('.md')) continue;
+
+      const journalName = child.basename || child.name.replace(/\.md$/i, '');
+      if (reserved.has(journalName.toLocaleLowerCase('ru'))) continue;
+      if (known.has(journalName) || archived.has(journalName)) continue;
+
+      this.customSections.push({
+        type: 'journal',
+        name: journalName,
+        emoji: '📌',
+        journal: journalName,
+        source: 'custom',
+        discovered: true
+      });
+      changed = true;
+    }
+
+    if (changed) this.saveCompassData().catch(() => {});
+    return changed;
+  }
+
+  /* Единая точка входа: вызывается перед каждой отрисовкой панели
+     и после любого события создания/удаления/переименования в vault. */
+  reconcileAllSections() {
+    const a = this.reconcileLibrarySections();
+    const b = this.reconcileJournalSections();
+    return a || b;
+  }
   isBuiltinHidden(id) { return this.hiddenBuiltins.includes(id); }
 
   getAllTypes() {
