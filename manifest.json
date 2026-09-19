@@ -1,9 +1,9 @@
 {
   "id": "compass-add",
   "name": "Compass",
-  "version": "2.3.11",
+  "version": "2.3.12",
   "minAppVersion": "1.5.0",
-  "description": "Compass 2.3.11: разделы, удалённые или заархивированные на другом устройстве, больше не «зависают» в боковой панели.",
+  "description": "Compass 2.3.12: технический ID блока (^compass-journal-...) больше не виден при вводе темы дня.",
   "author": "OpenAI",
   "isDesktopOnly": false
 }

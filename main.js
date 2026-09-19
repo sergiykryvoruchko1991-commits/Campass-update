@@ -4264,3 +4264,83 @@ CompassPlugin238.prototype.addEntry = async function(type) {
 
   new Notice(`Добавлено: ${type.label}`);
 };
+
+/* Compass 2.3.12: перестаём вставлять block-ID сразу на ту же строку, где стоит
+   курсор для ввода темы — Obsidian Live Preview показывает «сырой» Markdown на
+   активной строке, из-за чего ^compass-journal-... было видно во время печати.
+   Теперь ID дописывается позже, тем же механизмом ensureDailyJournalIds238,
+   который уже умеет находить строки "Тема:" без ID — но по-настоящему умной
+   задержке: таймер сбрасывается при каждом изменении файла (пока пользователь
+   печатает) и срабатывает только после паузы или ухода со страницы. */
+const compass2312BaseAddEntry = CompassPlugin238.prototype.addEntry;
+const compass2312BaseOnload = CompassPlugin238.prototype.onload;
+
+CompassPlugin238.prototype.onload = async function() {
+  this._pendingJournalIdSync2312 = new Map();
+  await compass2312BaseOnload.call(this);
+
+  this.registerEvent(this.app.vault.on('modify', file => {
+    if (!file || !this._pendingJournalIdSync2312.has(file.path)) return;
+    this.scheduleJournalIdSync2312(file);
+  }));
+
+  this.registerEvent(this.app.workspace.on('active-leaf-change', () => {
+    if (!this._pendingJournalIdSync2312.size) return;
+    const active = this.app.workspace.getActiveViewOfType(MarkdownView);
+    const activePath = active && active.file ? active.file.path : null;
+    for (const path of Array.from(this._pendingJournalIdSync2312.keys())) {
+      if (path === activePath) continue;
+      this.commitJournalIdSync2312(path);
+    }
+  }));
+};
+
+CompassPlugin238.prototype.scheduleJournalIdSync2312 = function(file) {
+  const key = file.path;
+  const previous = this._pendingJournalIdSync2312.get(key);
+  if (previous) window.clearTimeout(previous);
+  const timer = window.setTimeout(() => this.commitJournalIdSync2312(key), 1200);
+  this._pendingJournalIdSync2312.set(key, timer);
+};
+
+CompassPlugin238.prototype.commitJournalIdSync2312 = function(path) {
+  const timer = this._pendingJournalIdSync2312.get(path);
+  if (timer) window.clearTimeout(timer);
+  this._pendingJournalIdSync2312.delete(path);
+  const file = this.app.vault.getAbstractFileByPath(path);
+  if (file) this.reconcileTopicJournals232(file).catch(() => {});
+};
+
+CompassPlugin238.prototype.addEntry = async function(type) {
+  if (!type?.journal || this.isFoodJournal238(type)) {
+    return compass2312BaseAddEntry.call(this, type);
+  }
+
+  let view = this.app.workspace.getActiveViewOfType(MarkdownView);
+  let file = view && view.file && /^01 Дни\/\d{4}-\d{2}-\d{2}\.md$/.test(view.file.path) ? view.file : null;
+  if (!file) file = await this.ensureDate(moment());
+
+  await this.app.workspace.getLeaf(false).openFile(file);
+  view = this.app.workspace.getActiveViewOfType(MarkdownView);
+  const heading = type.label;
+  const topicLine = '**Тема:** ';
+  const starter = type.key === 'car'
+    ? `${topicLine}\n**Пробег:** `
+    : topicLine;
+  const block = `\n## ${heading}\n\n${starter}`;
+
+  if (view && view.file && view.file.path === file.path) {
+    const editor = view.editor;
+    editor.setCursor(editor.lineCount(), 0);
+    editor.replaceSelection(block);
+    const topicLineOffset = type.key === 'car' ? 2 : 1;
+    editor.setCursor({ line: Math.max(0, editor.lineCount() - topicLineOffset), ch: '**Тема:** '.length });
+    editor.focus();
+    this.scheduleJournalIdSync2312(file);
+  } else {
+    await this.app.vault.append(file, block);
+    await this.reconcileTopicJournals232(file);
+  }
+
+  new Notice(`Добавлено: ${type.label}`);
+};
